@@ -16,6 +16,8 @@ type Options struct {
 	Title             string
 	IsResizable       bool
 	DefaultExtButtons glfw.Key
+
+	Background [3]float32
 }
 
 func (opts *Options) UpdateOptions(op Options) {
@@ -37,6 +39,10 @@ func (opts *Options) UpdateOptions(op Options) {
 
 	if op.DefaultExtButtons != 0x0 {
 		opts.DefaultExtButtons = op.DefaultExtButtons
+	}
+
+	if op.Background[0] != 0.0 || op.Background[1] != 0.0 || op.Background[2] != 0.0 {
+		opts.Background = op.Background
 	}
 
 }
@@ -97,6 +103,7 @@ func Run(draw func()) {
 			window.SetShouldClose(true)
 		}
 
+		gl.ClearColor(internalOptions.Background[0], internalOptions.Background[1], internalOptions.Background[2], 1)
 		gl.Clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT)
 
 		draw()

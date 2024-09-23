@@ -32,8 +32,8 @@ func CreateShaderProgram(vertexShaderSource, fragmentShaderSource string) (sh Sh
 func compileShaderAndAttach(program uint32, source string, shaderType uint32) error {
 	shader := gl.CreateShader(shaderType)
 
-	csources, free := gl.Strs(source)
-	gl.ShaderSource(shader, 1, csources, nil)
+	cSources, free := gl.Strs(source)
+	gl.ShaderSource(shader, 1, cSources, nil)
 	free()
 	gl.CompileShader(shader)
 
@@ -48,10 +48,10 @@ func compileShaderAndAttach(program uint32, source string, shaderType uint32) er
 	return nil
 }
 
-func isShaderSuccess(shader uint32, pname uint32) error {
+func isShaderSuccess(shader uint32, pName uint32) error {
 
 	var success int32
-	gl.GetShaderiv(shader, pname, &success)
+	gl.GetShaderiv(shader, pName, &success)
 	if success == 0 {
 		var logLength int32
 		gl.GetShaderiv(shader, gl.INFO_LOG_LENGTH, &logLength)

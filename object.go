@@ -1,18 +1,19 @@
 package noor
 
-import "github.com/go-gl/gl/v4.5-core/gl"
+import (
+	"github.com/go-gl/gl/v4.5-core/gl"
+)
 
 type Vertex struct {
 	Position [3]float32
+	Color    [3]float32
 }
 
-const VertexSize = 3 * 4
+const VertexSize = 24
 
 type Mesh struct {
 	Vertices []Vertex
 	Indices  []uint32
-	VBO      uint32
-	EBO      uint32
 }
 
 func NewMesh(vertices []Vertex, indices []uint32) *Mesh {
@@ -21,20 +22,25 @@ func NewMesh(vertices []Vertex, indices []uint32) *Mesh {
 	m.Indices = indices
 
 	// Generate and bind the VBO
-	gl.GenBuffers(1, &m.VBO)
-	gl.BindBuffer(gl.ARRAY_BUFFER, m.VBO)
+	var VBO uint32
+	gl.GenBuffers(1, &VBO)
+	gl.BindBuffer(gl.ARRAY_BUFFER, VBO)
 	gl.BufferData(gl.ARRAY_BUFFER, len(vertices)*VertexSize, gl.Ptr(vertices), gl.STATIC_DRAW)
-
-	// Generate and bind the EBO
-	if len(indices) > 0 {
-		gl.GenBuffers(1, &m.EBO)
-		gl.BindBuffer(gl.ELEMENT_ARRAY_BUFFER, m.EBO)
-		gl.BufferData(gl.ELEMENT_ARRAY_BUFFER, len(indices)*4, gl.Ptr(indices), gl.STATIC_DRAW)
-	}
 
 	// Set vertex attribute pointers
 	gl.EnableVertexAttribArray(0)
 	gl.VertexAttribPointerWithOffset(0, 3, gl.FLOAT, false, VertexSize, 0)
+
+	gl.EnableVertexAttribArray(1)
+	gl.VertexAttribPointerWithOffset(1, 3, gl.FLOAT, false, VertexSize, 3*4)
+
+	// Generate and bind the EBO
+	var EBO uint32
+	if len(indices) > 0 {
+		gl.GenBuffers(1, &EBO)
+		gl.BindBuffer(gl.ELEMENT_ARRAY_BUFFER, EBO)
+		gl.BufferData(gl.ELEMENT_ARRAY_BUFFER, len(indices)*4, gl.Ptr(indices), gl.STATIC_DRAW)
+	}
 
 	return &m
 }
