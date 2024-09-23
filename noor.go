@@ -4,11 +4,17 @@
 package noor
 
 import (
+	"fmt"
+
 	"github.com/go-gl/gl/v4.5-core/gl"
 	"github.com/go-gl/glfw/v3.3/glfw"
 )
 
-var window *glfw.Window
+var (
+	window             *glfw.Window
+	isInitialized      bool
+	unInitializedError = fmt.Errorf("noor is not initialized")
+)
 
 type Options struct {
 	Width             int
@@ -93,10 +99,15 @@ func Init(opts Options) (err error) {
 		gl.Viewport(0, 0, int32(width), int32(height))
 	})
 
+	isInitialized = true
 	return
 }
 
-func Run(draw func()) {
+func Run(draw func()) (err error) {
+
+	if !isInitialized {
+		return unInitializedError
+	}
 
 	for !window.ShouldClose() {
 		if internalOptions.DefaultExtButtons != 0x0 && window.GetKey(internalOptions.DefaultExtButtons) == glfw.Press {
@@ -113,4 +124,6 @@ func Run(draw func()) {
 	}
 
 	glfw.Terminate()
+
+	return
 }
