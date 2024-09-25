@@ -1,58 +1,99 @@
 package noor
 
 import (
-	"unsafe"
+	"fmt"
 
+	"github.com/ahmedsat/bayaan"
+	"github.com/ahmedsat/madar"
 	"github.com/go-gl/gl/v4.5-core/gl"
 )
 
+// Vertex structure: position, color, texCoord
 type Vertex struct {
-	Position [3]float32
-	Color    [3]float32
-	TexCoord [2]float32
+	Position madar.Vector
+	Color    madar.Vector
+	TexCoord madar.Vector
 }
 
-const VertexSize = int(unsafe.Sizeof(Vertex{}))
+func NewVertex(position, color, texCoord madar.Vector) (v Vertex) {
+	bayaan.Trace("Creating new vertex: Position: %v, Color: %v, TexCoord: %v", position, color, texCoord)
+	if position.Dimension() != 3 || color.Dimension() != 3 || texCoord.Dimension() != 2 {
+		bayaan.Fatal("Invalid vertex dimensions. Expected Position=3, Color=3, TexCoord=2. Got Position=%d, Color=%d, TexCoord=%d",
+			position.Dimension(), color.Dimension(), texCoord.Dimension())
+	}
+	return Vertex{position, color, texCoord}
+}
+
+const VertexSize = 3*4 + 3*4 + 2*4 // position (3 floats) + color (3 floats) + texCoord (2 floats)
 
 type Mesh struct {
 	Vertices []Vertex
 	Indices  []uint32
+	VBO      uint32
+	EBO      uint32
 }
 
-func NewMesh(vertices []Vertex, indices []uint32) (m *Mesh, err error) {
+func NewMesh(vertices []Vertex, indices []uint32) (*Mesh, error) {
 	if !isInitialized {
-		return m, unInitializedError
+		bayaan.Error("Renderer is not initialized, cannot create a new mesh")
+		return nil, unInitializedError
 	}
 
-	m = new(Mesh)
-	m.Vertices = vertices
-	m.Indices = indices
+	m := &Mesh{
+		Vertices: vertices,
+		Indices:  indices,
+	}
+
+	bayaan.Info("Creating a new mesh with %d vertices and %d indices", len(vertices), len(indices))
+
+	vertexData := []float32{}
+
+	for _, v := range vertices {
+		vertexData = append(vertexData, v.Position...)
+		vertexData = append(vertexData, v.Color...)
+		vertexData = append(vertexData, v.TexCoord...)
+	}
 
 	// Generate and bind the VBO
-	var VBO uint32
-	gl.GenBuffers(1, &VBO)
-	gl.BindBuffer(gl.ARRAY_BUFFER, VBO)
-	gl.BufferData(gl.ARRAY_BUFFER, len(vertices)*VertexSize, gl.Ptr(vertices), gl.STATIC_DRAW)
+	gl.GenBuffers(1, &m.VBO)
+	gl.BindBuffer(gl.ARRAY_BUFFER, m.VBO)
+	gl.BufferData(gl.ARRAY_BUFFER, len(vertices)*VertexSize, gl.Ptr(vertexData), gl.STATIC_DRAW)
+	bayaan.Trace("VBO created and data loaded to GPU: %d bytes", len(vertices)*VertexSize)
 
-	// Set vertex attribute pointers
-	gl.EnableVertexAttribArray(0)
-	gl.VertexAttribPointerWithOffset(0, 3, gl.FLOAT, false, int32(VertexSize), 0)
-
-	gl.EnableVertexAttribArray(1)
-	gl.VertexAttribPointerWithOffset(1, 3, gl.FLOAT, false, int32(VertexSize), 3*4)
-
-	gl.EnableVertexAttribArray(2)
-	gl.VertexAttribPointerWithOffset(2, 2, gl.FLOAT, false, int32(VertexSize), 6*4)
-
-	// Generate and bind the EBO
-	var EBO uint32
+	// Generate and bind the EBO (if needed)
 	if len(indices) > 0 {
-		gl.GenBuffers(1, &EBO)
-		gl.BindBuffer(gl.ELEMENT_ARRAY_BUFFER, EBO)
+		gl.GenBuffers(1, &m.EBO)
+		gl.BindBuffer(gl.ELEMENT_ARRAY_BUFFER, m.EBO)
 		gl.BufferData(gl.ELEMENT_ARRAY_BUFFER, len(indices)*4, gl.Ptr(indices), gl.STATIC_DRAW)
+		bayaan.Trace("EBO created and data loaded to GPU: %d bytes", len(indices)*4)
+	} else {
+		bayaan.Info("No indices provided for this mesh, EBO not created")
 	}
 
-	return
+	// Check for OpenGL errors
+	if err := checkOpenGLError("NewMesh"); err != nil {
+		bayaan.Error("OpenGL error occurred while creating a new mesh: %s", err)
+		return nil, err
+	}
+
+	bayaan.Info("Mesh created successfully")
+	return m, nil
+}
+
+func setupVertexAttributes() {
+	bayaan.Trace("Setting up vertex attribute pointers")
+	// Set vertex attribute pointers
+	gl.EnableVertexAttribArray(0) // Position
+	gl.VertexAttribPointerWithOffset(0, 3, gl.FLOAT, false, int32(VertexSize), 0)
+	bayaan.Trace("Position attribute set (index 0)")
+
+	gl.EnableVertexAttribArray(1) // Color
+	gl.VertexAttribPointerWithOffset(1, 3, gl.FLOAT, false, int32(VertexSize), 3*4)
+	bayaan.Trace("Color attribute set (index 1)")
+
+	gl.EnableVertexAttribArray(2) // TexCoord
+	gl.VertexAttribPointerWithOffset(2, 2, gl.FLOAT, false, int32(VertexSize), 6*4)
+	bayaan.Trace("Texture coordinate attribute set (index 2)")
 }
 
 type Material struct {
@@ -67,64 +108,125 @@ type Object struct {
 	ModelMatrix [16]float32 // Transformation for rendering
 }
 
-func NewObject(vertices []Vertex, indices []uint32, material *Material) (o *Object, err error) {
-
+// NewObject creates a new Object, sets up VAO, and binds its Mesh and Material
+func NewObject(vertices []Vertex, indices []uint32, material *Material) (*Object, error) {
 	if !isInitialized {
-		return o, unInitializedError
+		bayaan.Error("Renderer is not initialized, cannot create a new object")
+		return nil, unInitializedError
 	}
 
-	o = new(Object)
+	o := &Object{
+		Material: material,
+		ModelMatrix: [16]float32{
+			1, 0, 0, 0,
+			0, 1, 0, 0,
+			0, 0, 1, 0,
+			0, 0, 0, 1,
+		},
+	}
+
+	bayaan.Info("Creating a new object with %d vertices and %d indices", len(vertices), len(indices))
+
 	// Generate and bind the VAO
 	gl.GenVertexArrays(1, &o.VAO)
 	gl.BindVertexArray(o.VAO)
+	bayaan.Trace("VAO created and bound: %d", o.VAO)
 
+	// Create and bind the Mesh
+	var err error
 	o.Mesh, err = NewMesh(vertices, indices)
 	if err != nil {
-		return
+		bayaan.Error("Failed to create mesh for the object: %s", err)
+		return nil, err
 	}
 
-	o.Material = material
+	// Setup vertex attributes
+	setupVertexAttributes()
 
-	// Set model matrix
-	o.ModelMatrix = [16]float32{
-		1, 0, 0, 0,
-		0, 1, 0, 0,
-		0, 0, 1, 0,
-		0, 0, 0, 1,
-	}
-
-	// setup material shader uniforms
+	// Setup Material (shader and textures)
 	gl.UseProgram(o.Material.program)
-	gl.UniformMatrix4fv(gl.GetUniformLocation(o.Material.program, gl.Str("model\x00")), 1, false, &o.ModelMatrix[0])
+	bayaan.Trace("Shader program %d bound", o.Material.program)
 
-	// setup material textures
+	gl.UniformMatrix4fv(gl.GetUniformLocation(o.Material.program, gl.Str("model\x00")), 1, false, &o.ModelMatrix[0])
+	bayaan.Trace("Model matrix set for the object")
+
+	// Setup textures
 	for i, texture := range o.Material.Textures {
-		gl.Uniform1i(gl.GetUniformLocation(o.Material.program, gl.Str(texture.Name+"\x00")), int32(i))
+		setTexture(o.Material.program, texture, i)
+		bayaan.Trace("Texture %s (unit %d) bound to shader", texture.Name, i)
 	}
 
-	return
+	// Check for OpenGL errors
+	if err := checkOpenGLError("NewObject"); err != nil {
+		bayaan.Error("OpenGL error occurred while creating a new object: %s", err)
+		return nil, err
+	}
+
+	bayaan.Info("Object created successfully")
+	return o, nil
 }
 
-func (o *Object) Draw() (err error) {
+// Utility function to bind and set textures
+func setTexture(program uint32, texture Texture, unit int) {
+	gl.ActiveTexture(gl.TEXTURE0 + uint32(unit))
+	gl.BindTexture(gl.TEXTURE_2D, texture.Handle)
+	gl.Uniform1i(gl.GetUniformLocation(program, gl.Str(texture.Name+"\x00")), int32(unit))
+}
 
+// Draw renders the object with its mesh and material
+func (o *Object) Draw() error {
 	if !isInitialized {
+		bayaan.Error("Renderer is not initialized, cannot draw the object")
 		return unInitializedError
 	}
 
+	// Bind VAO and textures
 	gl.BindVertexArray(o.VAO)
-
 	for i, texture := range o.Material.Textures {
-		gl.ActiveTexture(gl.TEXTURE0 + uint32(i))
-		gl.BindTexture(gl.TEXTURE_2D, texture.Handle)
+		setTexture(o.Material.program, texture, i)
 	}
 
 	gl.UseProgram(o.Material.program)
 
+	// Draw either using indices or vertices
 	if len(o.Mesh.Indices) > 0 {
+		gl.BindBuffer(gl.ELEMENT_ARRAY_BUFFER, o.Mesh.EBO)
 		gl.DrawElements(gl.TRIANGLES, int32(len(o.Mesh.Indices)), gl.UNSIGNED_INT, nil)
+
 	} else {
 		gl.DrawArrays(gl.TRIANGLES, 0, int32(len(o.Mesh.Vertices)))
+
 	}
 
-	return
+	return checkOpenGLError("Draw")
+}
+
+// checkOpenGLError checks for OpenGL errors after each call for debugging purposes
+func checkOpenGLError(context string) error {
+	if errCode := gl.GetError(); errCode != gl.NO_ERROR {
+		errMsg := "OpenGL error in " + context + ": " + getGLErrorString(errCode)
+		bayaan.Error(errMsg)
+		return fmt.Errorf(errMsg)
+	}
+	return nil
+}
+
+// getGLErrorString returns a string representation of OpenGL error codes
+func getGLErrorString(errCode uint32) string {
+	switch errCode {
+	case gl.INVALID_ENUM:
+		return "INVALID_ENUM"
+	case gl.INVALID_VALUE:
+		return "INVALID_VALUE"
+	case gl.INVALID_OPERATION:
+		return "INVALID_OPERATION"
+	case gl.STACK_OVERFLOW:
+		return "STACK_OVERFLOW"
+	case gl.STACK_UNDERFLOW:
+		return "STACK_UNDERFLOW"
+	case gl.OUT_OF_MEMORY:
+		return "OUT_OF_MEMORY"
+	default:
+		return fmt.Sprintf("Unknown error (0x%x)", errCode)
+	}
 }
