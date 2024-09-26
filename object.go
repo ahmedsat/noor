@@ -1,6 +1,7 @@
 package noor
 
 import (
+	"errors"
 	"fmt"
 
 	"github.com/ahmedsat/bayaan"
@@ -10,17 +11,14 @@ import (
 
 // Vertex structure: position, color, texCoord
 type Vertex struct {
-	Position madar.Vector
-	Color    madar.Vector
-	TexCoord madar.Vector
+	Position madar.Vector3 // 3D position
+	Color    madar.Vector3 // RGB color
+	TexCoord madar.Vector2 // 2D texture coordinates
 }
 
-func NewVertex(position, color, texCoord madar.Vector) (v Vertex) {
+// NewVertex creates a new Vertex with given position, color, and texture coordinates
+func NewVertex(position madar.Vector3, color madar.Vector3, texCoord madar.Vector2) (v Vertex) {
 	bayaan.Trace("Creating new vertex: Position: %v, Color: %v, TexCoord: %v", position, color, texCoord)
-	if position.Dimension() != 3 || color.Dimension() != 3 || texCoord.Dimension() != 2 {
-		bayaan.Fatal("Invalid vertex dimensions. Expected Position=3, Color=3, TexCoord=2. Got Position=%d, Color=%d, TexCoord=%d",
-			position.Dimension(), color.Dimension(), texCoord.Dimension())
-	}
 	return Vertex{position, color, texCoord}
 }
 
@@ -33,10 +31,11 @@ type Mesh struct {
 	EBO      uint32
 }
 
+// NewMesh creates a new Mesh and uploads vertex and index data to GPU
 func NewMesh(vertices []Vertex, indices []uint32) (*Mesh, error) {
 	if !isInitialized {
 		bayaan.Error("Renderer is not initialized, cannot create a new mesh")
-		return nil, unInitializedError
+		return nil, errUnInitialized
 	}
 
 	m := &Mesh{
@@ -47,18 +46,17 @@ func NewMesh(vertices []Vertex, indices []uint32) (*Mesh, error) {
 	bayaan.Info("Creating a new mesh with %d vertices and %d indices", len(vertices), len(indices))
 
 	vertexData := []float32{}
-
 	for _, v := range vertices {
-		vertexData = append(vertexData, v.Position...)
-		vertexData = append(vertexData, v.Color...)
-		vertexData = append(vertexData, v.TexCoord...)
+		vertexData = append(vertexData, v.Position[:]...) // Add position
+		vertexData = append(vertexData, v.Color[:]...)    // Add color
+		vertexData = append(vertexData, v.TexCoord[:]...) // Add texCoord
 	}
 
 	// Generate and bind the VBO
 	gl.GenBuffers(1, &m.VBO)
 	gl.BindBuffer(gl.ARRAY_BUFFER, m.VBO)
-	gl.BufferData(gl.ARRAY_BUFFER, len(vertices)*VertexSize, gl.Ptr(vertexData), gl.STATIC_DRAW)
-	bayaan.Trace("VBO created and data loaded to GPU: %d bytes", len(vertices)*VertexSize)
+	gl.BufferData(gl.ARRAY_BUFFER, len(vertexData)*4, gl.Ptr(vertexData), gl.STATIC_DRAW)
+	bayaan.Trace("VBO created and data loaded to GPU: %d bytes", len(vertexData)*4)
 
 	// Generate and bind the EBO (if needed)
 	if len(indices) > 0 {
@@ -105,40 +103,26 @@ type Object struct {
 	Mesh        *Mesh
 	Material    *Material
 	VAO         uint32
-	ModelMatrix [16]float32 // Transformation for rendering
+	ModelMatrix madar.Matrix4x4 // Transformation for rendering
 }
 
 // NewObject creates a new Object, sets up VAO, and binds its Mesh and Material
-func NewObject(vertices []Vertex, indices []uint32, material *Material) (*Object, error) {
+func NewObject(mesh *Mesh, material *Material, matrix madar.Matrix4x4) (*Object, error) {
 	if !isInitialized {
 		bayaan.Error("Renderer is not initialized, cannot create a new object")
-		return nil, unInitializedError
+		return nil, errUnInitialized
 	}
 
 	o := &Object{
-		Material: material,
-		ModelMatrix: [16]float32{
-			1, 0, 0, 0,
-			0, 1, 0, 0,
-			0, 0, 1, 0,
-			0, 0, 0, 1,
-		},
+		Material:    material,
+		ModelMatrix: matrix,
+		Mesh:        mesh,
 	}
-
-	bayaan.Info("Creating a new object with %d vertices and %d indices", len(vertices), len(indices))
 
 	// Generate and bind the VAO
 	gl.GenVertexArrays(1, &o.VAO)
 	gl.BindVertexArray(o.VAO)
 	bayaan.Trace("VAO created and bound: %d", o.VAO)
-
-	// Create and bind the Mesh
-	var err error
-	o.Mesh, err = NewMesh(vertices, indices)
-	if err != nil {
-		bayaan.Error("Failed to create mesh for the object: %s", err)
-		return nil, err
-	}
 
 	// Setup vertex attributes
 	setupVertexAttributes()
@@ -147,7 +131,7 @@ func NewObject(vertices []Vertex, indices []uint32, material *Material) (*Object
 	gl.UseProgram(o.Material.program)
 	bayaan.Trace("Shader program %d bound", o.Material.program)
 
-	gl.UniformMatrix4fv(gl.GetUniformLocation(o.Material.program, gl.Str("model\x00")), 1, false, &o.ModelMatrix[0])
+	gl.UniformMatrix4fv(gl.GetUniformLocation(o.Material.program, gl.Str("transform\x00")), 1, false, &o.ModelMatrix[0])
 	bayaan.Trace("Model matrix set for the object")
 
 	// Setup textures
@@ -177,7 +161,7 @@ func setTexture(program uint32, texture Texture, unit int) {
 func (o *Object) Draw() error {
 	if !isInitialized {
 		bayaan.Error("Renderer is not initialized, cannot draw the object")
-		return unInitializedError
+		return errUnInitialized
 	}
 
 	// Bind VAO and textures
@@ -201,12 +185,18 @@ func (o *Object) Draw() error {
 	return checkOpenGLError("Draw")
 }
 
+func (o *Object) UpdateMatrix(update func(m *madar.Matrix4x4)) {
+	update(&o.ModelMatrix)
+	gl.UniformMatrix4fv(gl.GetUniformLocation(o.Material.program, gl.Str("transform\x00")), 1, false, &o.ModelMatrix[0])
+	bayaan.Trace("Model matrix set for the object")
+}
+
 // checkOpenGLError checks for OpenGL errors after each call for debugging purposes
 func checkOpenGLError(context string) error {
 	if errCode := gl.GetError(); errCode != gl.NO_ERROR {
 		errMsg := "OpenGL error in " + context + ": " + getGLErrorString(errCode)
 		bayaan.Error(errMsg)
-		return fmt.Errorf(errMsg)
+		return errors.New(errMsg)
 	}
 	return nil
 }

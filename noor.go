@@ -11,9 +11,9 @@ import (
 )
 
 var (
-	window             *glfw.Window
-	isInitialized      bool
-	unInitializedError = fmt.Errorf("noor is not initialized")
+	window           *glfw.Window
+	isInitialized    bool
+	errUnInitialized = fmt.Errorf("noor is not initialized")
 )
 
 type Options struct {
@@ -106,7 +106,7 @@ func Init(opts Options) (err error) {
 func Run(draw func()) (err error) {
 
 	if !isInitialized {
-		return unInitializedError
+		return errUnInitialized
 	}
 
 	for !window.ShouldClose() {

@@ -23,7 +23,7 @@ type Texture struct {
 
 func NewTexture(img image.Image, name string) (tex Texture, err error) {
 	if !isInitialized {
-		return tex, unInitializedError
+		return tex, errUnInitialized
 	}
 
 	// Log the texture creation process
@@ -61,7 +61,7 @@ func NewTexture(img image.Image, name string) (tex Texture, err error) {
 
 func NewTextureFromFile(filePath, name string) (Texture, error) {
 	if !isInitialized {
-		return Texture{}, unInitializedError
+		return Texture{}, errUnInitialized
 	}
 
 	bayaan.Trace("Opening file: %s", filePath)
@@ -89,7 +89,7 @@ func LoadImage(imageFile io.Reader) (image.Image, error) {
 // LoadTexture loads a texture from an image file.
 func LoadTexture(imageFile io.Reader, name string) (Texture, error) {
 	if !isInitialized {
-		return Texture{}, unInitializedError
+		return Texture{}, errUnInitialized
 	}
 
 	// Decode image
