@@ -103,11 +103,11 @@ type Object struct {
 	Mesh        *Mesh
 	Material    *Material
 	VAO         uint32
-	ModelMatrix madar.Matrix4x4 // Transformation for rendering
+	ModelMatrix madar.Matrix4 // Transformation for rendering
 }
 
 // NewObject creates a new Object, sets up VAO, and binds its Mesh and Material
-func NewObject(mesh *Mesh, material *Material, matrix madar.Matrix4x4) (*Object, error) {
+func NewObject(mesh *Mesh, material *Material, matrix madar.Matrix4) (*Object, error) {
 	if !isInitialized {
 		bayaan.Error("Renderer is not initialized, cannot create a new object")
 		return nil, errUnInitialized
@@ -185,7 +185,7 @@ func (o *Object) Draw() error {
 	return checkOpenGLError("Draw")
 }
 
-func (o *Object) UpdateMatrix(update func(m *madar.Matrix4x4)) {
+func (o *Object) UpdateMatrix(update func(m *madar.Matrix4)) {
 	update(&o.ModelMatrix)
 	gl.UniformMatrix4fv(gl.GetUniformLocation(o.Material.program, gl.Str("transform\x00")), 1, false, &o.ModelMatrix[0])
 	bayaan.Trace("Model matrix set for the object")
