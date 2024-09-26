@@ -187,6 +187,7 @@ func (o *Object) Draw() error {
 
 func (o *Object) UpdateMatrix(update func(m *madar.Matrix4)) {
 	update(&o.ModelMatrix)
+	gl.UseProgram(o.Material.program)
 	gl.UniformMatrix4fv(gl.GetUniformLocation(o.Material.program, gl.Str("transform\x00")), 1, false, &o.ModelMatrix[0])
 	bayaan.Trace("Model matrix set for the object")
 }
