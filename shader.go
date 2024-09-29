@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/ahmedsat/bayaan"
+	"github.com/ahmedsat/madar"
 	"github.com/go-gl/gl/v4.5-core/gl"
 )
 
@@ -174,7 +175,10 @@ func (sh *Shader) SetUniform4f(name string, x, y, z, w float32) {
 }
 
 // SetUniformMatrix4fv sets a 4x4 matrix uniform value.
-func (sh *Shader) SetUniformMatrix4fv(name string, matrix *[16]float32) {
+func (sh *Shader) SetUniformMatrix4fv(name string, matrix madar.Matrix4) {
+
+	// matrix.Transpose()
+
 	location := sh.getUniformLocation(name)
 	gl.UniformMatrix4fv(location, 1, false, &matrix[0])
 	bayaan.Trace("Set mat4 uniform: %s", name)

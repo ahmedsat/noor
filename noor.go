@@ -99,6 +99,9 @@ func Init(opts Options) (err error) {
 		gl.Viewport(0, 0, int32(width), int32(height))
 	})
 
+	gl.Enable(gl.DEPTH_TEST)
+	gl.DepthFunc(gl.LESS)
+
 	isInitialized = true
 	return
 }

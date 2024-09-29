@@ -131,7 +131,7 @@ func NewObject(mesh *Mesh, material *Material, matrix madar.Matrix4) (*Object, e
 	gl.UseProgram(o.Material.program)
 	bayaan.Trace("Shader program %d bound", o.Material.program)
 
-	gl.UniformMatrix4fv(gl.GetUniformLocation(o.Material.program, gl.Str("transform\x00")), 1, false, &o.ModelMatrix[0])
+	o.Material.Shader.SetUniformMatrix4fv("model", o.ModelMatrix)
 	bayaan.Trace("Model matrix set for the object")
 
 	// Setup textures
@@ -158,7 +158,7 @@ func setTexture(program uint32, texture Texture, unit int) {
 }
 
 // Draw renders the object with its mesh and material
-func (o *Object) Draw() error {
+func (o *Object) Draw(c Camera) error {
 	if !isInitialized {
 		bayaan.Error("Renderer is not initialized, cannot draw the object")
 		return errUnInitialized
@@ -170,7 +170,8 @@ func (o *Object) Draw() error {
 		setTexture(o.Material.program, texture, i)
 	}
 
-	gl.UseProgram(o.Material.program)
+	o.Material.Shader.SetUniformMatrix4fv("view", c.ViewMatrix())
+	o.Material.Shader.SetUniformMatrix4fv("projection", c.ProjectionMatrix())
 
 	// Draw either using indices or vertices
 	if len(o.Mesh.Indices) > 0 {
@@ -185,11 +186,23 @@ func (o *Object) Draw() error {
 	return checkOpenGLError("Draw")
 }
 
-func (o *Object) UpdateMatrix(update func(m *madar.Matrix4)) {
-	update(&o.ModelMatrix)
+func (o *Object) UpdateModelMatrix(update func()) {
+	update()
 	gl.UseProgram(o.Material.program)
-	gl.UniformMatrix4fv(gl.GetUniformLocation(o.Material.program, gl.Str("transform\x00")), 1, false, &o.ModelMatrix[0])
+	o.Material.Shader.SetUniformMatrix4fv("model", o.ModelMatrix)
 	bayaan.Trace("Model matrix set for the object")
+}
+
+func (o *Object) UpdateCamera(camera Camera) {
+	gl.UseProgram(o.Material.program)
+
+	view := camera.ViewMatrix()
+	o.Material.Shader.SetUniformMatrix4fv("view", view)
+	bayaan.Trace("View matrix set for the object")
+	projection := camera.ProjectionMatrix()
+	o.Material.Shader.SetUniformMatrix4fv("projection", projection)
+	bayaan.Trace("projection matrix set for the object")
+
 }
 
 // checkOpenGLError checks for OpenGL errors after each call for debugging purposes
