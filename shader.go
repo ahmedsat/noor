@@ -12,7 +12,7 @@ import (
 )
 
 type Shader struct {
-	program uint32
+	Program uint32
 }
 
 // CreateShaderProgram creates a shader program from vertex and fragment shader sources.
@@ -20,10 +20,10 @@ func CreateShaderProgram(vertexShaderSource, fragmentShaderSource string) (sh Sh
 	bayaan.Info("Creating shader program")
 
 	// Create the shader program
-	sh.program = gl.CreateProgram()
+	sh.Program = gl.CreateProgram()
 
 	// Compile and attach vertex shader
-	err = compileShaderAndAttach(sh.program, vertexShaderSource, gl.VERTEX_SHADER)
+	err = compileShaderAndAttach(sh.Program, vertexShaderSource, gl.VERTEX_SHADER)
 	if err != nil {
 		err = errors.Join(err, errors.New("failed to compile vertex shader"))
 		return
@@ -31,7 +31,7 @@ func CreateShaderProgram(vertexShaderSource, fragmentShaderSource string) (sh Sh
 	bayaan.Trace("Vertex shader compiled and attached")
 
 	// Compile and attach fragment shader
-	err = compileShaderAndAttach(sh.program, fragmentShaderSource, gl.FRAGMENT_SHADER)
+	err = compileShaderAndAttach(sh.Program, fragmentShaderSource, gl.FRAGMENT_SHADER)
 	if err != nil {
 		err = errors.Join(err, errors.New("failed to compile fragment shader"))
 		return
@@ -39,8 +39,8 @@ func CreateShaderProgram(vertexShaderSource, fragmentShaderSource string) (sh Sh
 	bayaan.Trace("Fragment shader compiled and attached")
 
 	// Link the shader program
-	gl.LinkProgram(sh.program)
-	err = checkProgramLinkStatus(sh.program)
+	gl.LinkProgram(sh.Program)
+	err = checkProgramLinkStatus(sh.Program)
 	if err != nil {
 		err = errors.Join(err, errors.New("failed to link shader program"))
 		return
@@ -187,9 +187,13 @@ func (sh *Shader) SetUniformMatrix4fv(name string, matrix madar.Matrix4) {
 // getUniformLocation retrieves the location of a uniform variable in the shader program.
 func (sh *Shader) getUniformLocation(name string) int32 {
 	nameCStr := gl.Str(name + "\x00")
-	location := gl.GetUniformLocation(sh.program, nameCStr)
+	location := gl.GetUniformLocation(sh.Program, nameCStr)
 	if location == -1 {
 		bayaan.Warn("Warning: Uniform %s doesn't exist in shader", name)
 	}
 	return location
+}
+
+func (sh *Shader) Activate() {
+	gl.UseProgram(sh.Program)
 }

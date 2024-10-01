@@ -2,7 +2,7 @@ package noor
 
 type Scene struct {
 	Objects []*Object
-	*Camera
+	Camera  *Camera
 }
 
 func NewScene(camera *Camera, objects ...*Object) *Scene {
@@ -13,16 +13,24 @@ func NewScene(camera *Camera, objects ...*Object) *Scene {
 	return s
 }
 
+func (s *Scene) AddObject(obj *Object) {
+	s.Objects = append(s.Objects, obj)
+}
+
+func (s *Scene) SetCamera(cam *Camera) {
+	s.Camera = cam
+}
+
 func (s *Scene) UpdateCamera() {
 	for i := range s.Objects {
 		s.Objects[i].UpdateCamera(*s.Camera)
 	}
 }
 
-func (s *Scene) AddObject(o *Object) {
-	o.UpdateCamera(*s.Camera)
-	s.Objects = append(s.Objects, o)
-}
+// func (s *Scene) AddObject(o *Object) {
+// 	o.UpdateCamera(*s.Camera)
+// 	s.Objects = append(s.Objects, o)
+// }
 
 func (s *Scene) Draw() {
 	for _, o := range s.Objects {

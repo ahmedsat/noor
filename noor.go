@@ -6,6 +6,7 @@ package noor
 import (
 	"fmt"
 
+	"github.com/ahmedsat/bayaan"
 	"github.com/go-gl/gl/v4.5-core/gl"
 	"github.com/go-gl/glfw/v3.3/glfw"
 )
@@ -112,7 +113,14 @@ func Run(draw func()) (err error) {
 		return errUnInitialized
 	}
 
+	start := glfw.GetTime()
+	// last := start
+	fps := 0.0
+	fpsCounter := 0.0
+	fpsStart := 0.0
+
 	for !window.ShouldClose() {
+
 		if internalOptions.DefaultExtButtons != 0x0 && window.GetKey(internalOptions.DefaultExtButtons) == glfw.Press {
 			window.SetShouldClose(true)
 		}
@@ -124,6 +132,17 @@ func Run(draw func()) (err error) {
 
 		window.SwapBuffers()
 		glfw.PollEvents()
+
+		// last = start
+		start = glfw.GetTime()
+
+		fpsCounter++
+		if start-fpsStart > 1.0 {
+			fps = fpsCounter
+			fpsCounter = 0
+			fpsStart = start
+			bayaan.Debug("FPS: %v", fps)
+		}
 	}
 
 	glfw.Terminate()

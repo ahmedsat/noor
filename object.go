@@ -95,9 +95,17 @@ func setupVertexAttributes() {
 }
 
 type Material struct {
-	Shader
-	Textures []Texture
+	Shader   *Shader
+	Textures []*Texture
 }
+
+func (m *Material) AddTexture(texture *Texture) {
+	m.Textures = append(m.Textures, texture)
+}
+
+// func (m *Material) Bind() {
+// 	// Logic to bind shader and textures for rendering
+// }
 
 type Object struct {
 	Mesh        *Mesh
@@ -105,6 +113,18 @@ type Object struct {
 	VAO         uint32
 	ModelMatrix madar.Matrix4 // Transformation for rendering
 }
+
+// func (o *Object) Translate(translation madar.Vector3) {
+// 	o.ModelMatrix = o.ModelMatrix.Multiply(madar.TranslationMatrix(translation))
+// }
+
+// func (o *Object) Rotate(rotation madar.Vector3, angle float32) {
+// 	o.ModelMatrix = o.ModelMatrix.Multiply(madar.RotationMatrix(rotation, angle))
+// }
+
+// func (o *Object) Scale(scale madar.Vector3) {
+// 	o.ModelMatrix = o.ModelMatrix.Multiply(madar.ScaleMatrix(scale))
+// }
 
 // NewObject creates a new Object, sets up VAO, and binds its Mesh and Material
 func NewObject(mesh *Mesh, material *Material, matrix madar.Matrix4) (*Object, error) {
@@ -128,15 +148,15 @@ func NewObject(mesh *Mesh, material *Material, matrix madar.Matrix4) (*Object, e
 	setupVertexAttributes()
 
 	// Setup Material (shader and textures)
-	gl.UseProgram(o.Material.program)
-	bayaan.Trace("Shader program %d bound", o.Material.program)
+	gl.UseProgram(o.Material.Shader.Program)
+	bayaan.Trace("Shader program %d bound", o.Material.Shader.Program)
 
 	o.Material.Shader.SetUniformMatrix4fv("model", o.ModelMatrix)
 	bayaan.Trace("Model matrix set for the object")
 
 	// Setup textures
 	for i, texture := range o.Material.Textures {
-		setTexture(o.Material.program, texture, i)
+		setTexture(o.Material.Shader.Program, *texture, i)
 		bayaan.Trace("Texture %s (unit %d) bound to shader", texture.Name, i)
 	}
 
@@ -164,10 +184,12 @@ func (o *Object) Draw(c Camera) error {
 		return errUnInitialized
 	}
 
+	o.Material.Shader.Activate()
+
 	// Bind VAO and textures
 	gl.BindVertexArray(o.VAO)
 	for i, texture := range o.Material.Textures {
-		setTexture(o.Material.program, texture, i)
+		setTexture(o.Material.Shader.Program, *texture, i)
 	}
 
 	o.Material.Shader.SetUniformMatrix4fv("view", c.ViewMatrix())
@@ -188,13 +210,13 @@ func (o *Object) Draw(c Camera) error {
 
 func (o *Object) UpdateModelMatrix(update func()) {
 	update()
-	gl.UseProgram(o.Material.program)
+	gl.UseProgram(o.Material.Shader.Program)
 	o.Material.Shader.SetUniformMatrix4fv("model", o.ModelMatrix)
 	bayaan.Trace("Model matrix set for the object")
 }
 
 func (o *Object) UpdateCamera(camera Camera) {
-	gl.UseProgram(o.Material.program)
+	gl.UseProgram(o.Material.Shader.Program)
 
 	view := camera.ViewMatrix()
 	o.Material.Shader.SetUniformMatrix4fv("view", view)
