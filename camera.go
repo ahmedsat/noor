@@ -1,8 +1,6 @@
 package noor
 
 import (
-	"math"
-
 	"github.com/ahmedsat/madar"
 )
 
@@ -14,62 +12,115 @@ const (
 )
 
 type Camera struct {
-	Position       madar.Vector3
-	LookAt         madar.Vector3
-	Up             madar.Vector3
-	ProjectionType ProjectionType
-	Near           float32
-	Far            float32
-	Fov            float32
-	Aspect         float32
+	Position  madar.Vector3
+	Direction madar.Vector3
+	Up        madar.Vector3
+	Right     madar.Vector3
+
+	Projection ProjectionType
+	Zoom       float32
+
+	Width  float32
+	Height float32
+
+	FOV  float32
+	Near float32
+	Far  float32
+
+	ProjectionMatrix madar.Matrix4X4
+	ViewMatrix       madar.Matrix4X4
 }
 
-// Getter and setter methods remain the same, so I'll omit them for brevity
-
-func (c *Camera) ViewMatrix() madar.Matrix4 {
-	forward := madar.Vector3{
-		c.LookAt[0] - c.Position[0],
-		c.LookAt[1] - c.Position[1],
-		c.LookAt[2] - c.Position[2],
+func NewCamera(width, height float32) *Camera {
+	cam := &Camera{
+		Position:   madar.Vector3{X: 0, Y: 0, Z: 3},
+		Direction:  madar.Vector3{X: 0, Y: 0, Z: -1},
+		Up:         madar.Vector3{X: 0, Y: 1, Z: 0},
+		Projection: Perspective,
+		Zoom:       1,
+		Width:      width,
+		Height:     height,
+		FOV:        45,
+		Near:       0.1,
+		Far:        100,
 	}
-	forward = forward.Normalize()
+	cam.updateVectors()
+	cam.updateProjectionMatrix()
+	cam.updateViewMatrix()
+	return cam
+}
 
-	right := forward.Cross(c.Up).Normalize()
-	up := right.Cross(forward)
+func (c *Camera) updateVectors() {
+	c.Right = c.Direction.Cross(c.Up).Normalize()
+	c.Up = c.Right.Cross(c.Direction).Normalize()
+}
 
-	return madar.Matrix4{
-		right[0], up[0], -forward[0], 0,
-		right[1], up[1], -forward[1], 0,
-		right[2], up[2], -forward[2], 0,
-		-right.Dot(c.Position), -up.Dot(c.Position), forward.Dot(c.Position), 1,
+func (c *Camera) updateProjectionMatrix() {
+	aspect := c.Width / c.Height
+	if c.Projection == Perspective {
+		c.ProjectionMatrix = madar.PerspectiveMatrix4X4(c.FOV, aspect, c.Near, c.Far)
+	} else {
+		size := c.Zoom * 10
+		c.ProjectionMatrix = madar.OrthographicMatrix4X4(-size*aspect, size*aspect, -size, size, c.Near, c.Far)
 	}
 }
 
-func (c *Camera) ProjectionMatrix() madar.Matrix4 {
-	switch c.ProjectionType {
-	case Orthographic:
-		return c.orthographicMatrix()
-	case Perspective:
-		return c.perspectiveMatrix()
-	default:
-		return c.orthographicMatrix()
-	}
+func (c *Camera) updateViewMatrix() {
+	center := c.Position.Add(c.Direction)
+	c.ViewMatrix = madar.LookAtMatrix4X4(c.Position, center, c.Up)
 }
 
-func (c *Camera) orthographicMatrix() madar.Matrix4 {
-	right := 1.0 * c.Aspect
-	left := -right
-	top := float32(1.0)
-	bottom := -top
-
-	return madar.OrthographicMatrix(left, right, bottom, top, c.Near, c.Far)
+func (c *Camera) Update() {
+	c.updateVectors()
+	c.updateProjectionMatrix()
+	c.updateViewMatrix()
 }
 
-func (c *Camera) perspectiveMatrix() madar.Matrix4 {
-	fov := c.Fov * float32(math.Pi) / 180 // Convert to radians
-	return madar.PerspectiveMatrix(fov, c.Aspect, c.Near, c.Far)
+func (c *Camera) SetPosition(x, y, z float32) {
+	c.Position = madar.Vector3{X: x, Y: y, Z: z}
+	c.Update()
 }
 
-func (c *Camera) SetAspect(aspect float32) {
-	c.Aspect = aspect
+func (c *Camera) SetDirection(x, y, z float32) {
+	c.Direction = madar.Vector3{X: x, Y: y, Z: z}.Normalize()
+	c.Update()
+}
+
+func (c *Camera) SetProjection(projType ProjectionType) {
+	c.Projection = projType
+	c.Update()
+}
+
+func (c *Camera) SetZoom(zoom float32) {
+	c.Zoom = zoom
+	c.Update()
+}
+
+func (c *Camera) SetFOV(fov float32) {
+	c.FOV = fov
+	c.Update()
+}
+
+func (c *Camera) Rotate(yaw, pitch, roll float32) {
+	c.Direction = c.Direction.Rotate(yaw, pitch, roll).Normalize()
+	c.Right = c.Direction.Cross(c.Up).Normalize()
+	c.Up = c.Right.Cross(c.Direction).Normalize()
+	c.Update()
+}
+
+func (c *Camera) Move(direction madar.Vector3, distance float32) {
+	c.Position = c.Position.Add(direction.Scale(distance))
+	c.Update()
+}
+
+func (c *Camera) MoveForward(distance float32) {
+	c.Move(c.Direction, distance)
+}
+
+func (c *Camera) MoveRight(distance float32) {
+	c.Move(c.Right, distance)
+}
+
+func (c *Camera) MoveUp(distance float32) {
+	c.Move(c.Up, distance)
 }

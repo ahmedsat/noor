@@ -7,8 +7,6 @@ import (
 	"image"
 	_ "image/jpeg"
 	_ "image/png"
-	"io"
-	"os"
 
 	_ "golang.org/x/image/webp"
 
@@ -22,9 +20,6 @@ type Texture struct {
 }
 
 func NewTexture(img image.Image, name string) (tex Texture, err error) {
-	if !isInitialized {
-		return tex, errUnInitialized
-	}
 
 	// Log the texture creation process
 	bayaan.Trace("Creating texture: %s", name)
@@ -39,7 +34,12 @@ func NewTexture(img image.Image, name string) (tex Texture, err error) {
 	defer gl.BindTexture(gl.TEXTURE_2D, 0) // Unbind after setting texture
 
 	// Set texture parameters
-	setTextureParameters()
+
+	gl.TexParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE)
+	gl.TexParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE)
+	gl.TexParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST)
+	gl.TexParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST)
+	bayaan.Trace("Texture parameters set to GL_NEAREST and CLAMP_TO_EDGE")
 
 	// Load the pixel data into the GPU
 	bayaan.Trace("Loading image %s pixels to GPU texture", name)
@@ -59,47 +59,15 @@ func NewTexture(img image.Image, name string) (tex Texture, err error) {
 	return
 }
 
-func NewTextureFromFile(filePath, name string) (Texture, error) {
-	if !isInitialized {
-		return Texture{}, errUnInitialized
-	}
-
-	bayaan.Trace("Opening file: %s", filePath)
-	file, err := os.Open(filePath)
-	if err != nil {
-		bayaan.Error("Failed to open texture file: %s, error: %v", filePath, err)
-		return Texture{}, err
-	}
-	defer file.Close()
-
-	bayaan.Trace("File [%s] opened successfully", filePath)
-	return LoadTexture(file, name)
+func (tex *Texture) Delete() {
+	gl.DeleteTextures(1, &tex.Handle)
 }
 
-// LoadImage decodes an image from an io.Reader.
-func LoadImage(imageFile io.Reader) (image.Image, error) {
-	img, _, err := image.Decode(imageFile)
-	if err != nil {
-		bayaan.Error("Failed to decode image: %v", err)
-		return nil, err
-	}
-	return img, nil
-}
-
-// LoadTexture loads a texture from an image file.
-func LoadTexture(imageFile io.Reader, name string) (Texture, error) {
-	if !isInitialized {
-		return Texture{}, errUnInitialized
-	}
-
-	// Decode image
-	img, err := LoadImage(imageFile)
-	if err != nil {
-		return Texture{}, err
-	}
-
-	bayaan.Info("Texture %s loaded to memory", name)
-	return NewTexture(img, name)
+func (tex *Texture) Activate(sh Shader, unit uint32) {
+	sh.Activate()
+	gl.ActiveTexture(gl.TEXTURE0 + unit)
+	gl.BindTexture(gl.TEXTURE_2D, tex.Handle)
+	sh.SetUniform1i(tex.Name, int32(unit))
 }
 
 func imageToRGBA(img image.Image) *image.RGBA {
@@ -114,12 +82,4 @@ func imageToRGBA(img image.Image) *image.RGBA {
 		}
 	}
 	return rgba
-}
-
-func setTextureParameters() {
-	gl.TexParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE)
-	gl.TexParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE)
-	gl.TexParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST)
-	gl.TexParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST)
-	bayaan.Trace("Texture parameters set to GL_NEAREST and CLAMP_TO_EDGE")
 }

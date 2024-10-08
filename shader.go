@@ -11,19 +11,17 @@ import (
 	"github.com/go-gl/gl/v4.5-core/gl"
 )
 
-type Shader struct {
-	Program uint32
-}
+type Shader uint32
 
 // CreateShaderProgram creates a shader program from vertex and fragment shader sources.
 func CreateShaderProgram(vertexShaderSource, fragmentShaderSource string) (sh Shader, err error) {
 	bayaan.Info("Creating shader program")
 
 	// Create the shader program
-	sh.Program = gl.CreateProgram()
+	sh = Shader(gl.CreateProgram())
 
 	// Compile and attach vertex shader
-	err = compileShaderAndAttach(sh.Program, vertexShaderSource, gl.VERTEX_SHADER)
+	err = compileShaderAndAttach(uint32(sh), vertexShaderSource, gl.VERTEX_SHADER)
 	if err != nil {
 		err = errors.Join(err, errors.New("failed to compile vertex shader"))
 		return
@@ -31,7 +29,7 @@ func CreateShaderProgram(vertexShaderSource, fragmentShaderSource string) (sh Sh
 	bayaan.Trace("Vertex shader compiled and attached")
 
 	// Compile and attach fragment shader
-	err = compileShaderAndAttach(sh.Program, fragmentShaderSource, gl.FRAGMENT_SHADER)
+	err = compileShaderAndAttach(uint32(sh), fragmentShaderSource, gl.FRAGMENT_SHADER)
 	if err != nil {
 		err = errors.Join(err, errors.New("failed to compile fragment shader"))
 		return
@@ -39,8 +37,8 @@ func CreateShaderProgram(vertexShaderSource, fragmentShaderSource string) (sh Sh
 	bayaan.Trace("Fragment shader compiled and attached")
 
 	// Link the shader program
-	gl.LinkProgram(sh.Program)
-	err = checkProgramLinkStatus(sh.Program)
+	gl.LinkProgram(uint32(sh))
+	err = checkProgramLinkStatus(uint32(sh))
 	if err != nil {
 		err = errors.Join(err, errors.New("failed to link shader program"))
 		return
@@ -175,19 +173,19 @@ func (sh *Shader) SetUniform4f(name string, x, y, z, w float32) {
 }
 
 // SetUniformMatrix4fv sets a 4x4 matrix uniform value.
-func (sh *Shader) SetUniformMatrix4fv(name string, matrix madar.Matrix4) {
+func (sh *Shader) SetUniformMatrix4fv(name string, matrix madar.Matrix4X4) {
 
-	// matrix.Transpose()
+	t := matrix.Transpose()
 
 	location := sh.getUniformLocation(name)
-	gl.UniformMatrix4fv(location, 1, false, &matrix[0])
+	gl.UniformMatrix4fv(location, 1, false, &t[0])
 	bayaan.Trace("Set mat4 uniform: %s", name)
 }
 
 // getUniformLocation retrieves the location of a uniform variable in the shader program.
 func (sh *Shader) getUniformLocation(name string) int32 {
 	nameCStr := gl.Str(name + "\x00")
-	location := gl.GetUniformLocation(sh.Program, nameCStr)
+	location := gl.GetUniformLocation(uint32(*sh), nameCStr)
 	if location == -1 {
 		bayaan.Warn("Warning: Uniform %s doesn't exist in shader", name)
 	}
@@ -195,5 +193,9 @@ func (sh *Shader) getUniformLocation(name string) int32 {
 }
 
 func (sh *Shader) Activate() {
-	gl.UseProgram(sh.Program)
+	gl.UseProgram(uint32(*sh))
+}
+
+func (sh *Shader) Delete() {
+	gl.DeleteProgram(uint32(*sh))
 }
