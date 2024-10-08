@@ -101,10 +101,16 @@ func (c *Camera) SetFOV(fov float32) {
 	c.Update()
 }
 
-func (c *Camera) Rotate(yaw, pitch, roll float32) {
-	c.Direction = c.Direction.Rotate(yaw, pitch, roll).Normalize()
-	c.Right = c.Direction.Cross(c.Up).Normalize()
-	c.Up = c.Right.Cross(c.Direction).Normalize()
+func (c *Camera) Rotate(pitch, yaw, roll float32) {
+
+	// Combine the rotations to get the final transformation matrix
+	rotationMatrix := madar.RotationMatrix4X4(pitch, yaw, roll)
+
+	// Rotate the direction and right vectors by the combined rotation matrix
+	c.Direction = rotationMatrix.MultiplyVector3(c.Direction).Normalize()
+	c.Right = rotationMatrix.MultiplyVector3(c.Right).Normalize()
+	c.Up = rotationMatrix.MultiplyVector3(c.Up).Normalize()
+
 	c.Update()
 }
 

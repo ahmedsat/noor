@@ -4,6 +4,7 @@ import (
 	"errors"
 	"time"
 
+	"github.com/ahmedsat/noor/input"
 	"github.com/go-gl/gl/v4.5-core/gl"
 	"github.com/go-gl/glfw/v3.3/glfw"
 )
@@ -28,6 +29,7 @@ func Init(width, height int, title string, resizable bool) (err error) {
 	if err != nil {
 		return errors.Join(err, errors.New("failed to create window"))
 	}
+	input.Init(window)
 	window.MakeContextCurrent()
 
 	err = gl.Init()
