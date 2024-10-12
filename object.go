@@ -17,7 +17,14 @@ type Object struct {
 }
 
 // vertices is [x, y, z, u, v]
-func NewObject(vertices []float32, indices []uint32, sh Shader, textures ...Texture) (obj *Object) {
+
+type Vertex struct {
+	X, Y, Z, W, R, G, B, A, U, V float32
+}
+
+const vertexSize = 40
+
+func NewObject(vertices []Vertex, indices []uint32, sh Shader, textures ...Texture) (obj *Object) {
 
 	if len(vertices) == 0 {
 		bayaan.Error("vertices cannot be nil or empty")
@@ -35,7 +42,7 @@ func NewObject(vertices []float32, indices []uint32, sh Shader, textures ...Text
 	var vbo uint32
 	gl.GenBuffers(1, &vbo)
 	gl.BindBuffer(gl.ARRAY_BUFFER, vbo)
-	gl.BufferData(gl.ARRAY_BUFFER, 4*len(vertices), gl.Ptr(vertices), gl.STATIC_DRAW)
+	gl.BufferData(gl.ARRAY_BUFFER, vertexSize*len(vertices), gl.Ptr(vertices), gl.STATIC_DRAW)
 
 	if obj.indexCount > 0 {
 		var ebo uint32
@@ -45,10 +52,13 @@ func NewObject(vertices []float32, indices []uint32, sh Shader, textures ...Text
 	}
 
 	gl.EnableVertexAttribArray(0)
-	gl.VertexAttribPointerWithOffset(0, 3, gl.FLOAT, false, 5*4, 0)
+	gl.VertexAttribPointerWithOffset(0, 4, gl.FLOAT, false, vertexSize, 0)
 
 	gl.EnableVertexAttribArray(1)
-	gl.VertexAttribPointerWithOffset(1, 2, gl.FLOAT, false, 5*4, 3*4)
+	gl.VertexAttribPointerWithOffset(1, 4, gl.FLOAT, false, vertexSize, 4*4)
+
+	gl.EnableVertexAttribArray(2)
+	gl.VertexAttribPointerWithOffset(2, 4, gl.FLOAT, false, vertexSize, 8*4)
 
 	obj.handle = vao
 	obj.vertexCount = len(vertices)
@@ -66,9 +76,9 @@ func (obj *Object) Delete() {
 func (obj *Object) Draw(c *Camera) {
 
 	obj.shader.Activate()
-	obj.shader.SetUniformMatrix4fv("model", obj.ModelMatrix())
-	obj.shader.SetUniformMatrix4fv("view", c.ViewMatrix)
-	obj.shader.SetUniformMatrix4fv("projection", c.ProjectionMatrix)
+	obj.shader.SetUniformMatrix4fv("uModel", obj.ModelMatrix())
+	obj.shader.SetUniformMatrix4fv("uView", c.ViewMatrix)
+	obj.shader.SetUniformMatrix4fv("uProjection", c.ProjectionMatrix)
 
 	for i, tex := range obj.textures {
 		tex.Activate(obj.shader, uint32(i))
