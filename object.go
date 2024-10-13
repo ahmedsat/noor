@@ -22,7 +22,26 @@ type Vertex struct {
 	X, Y, Z, W, R, G, B, A, U, V float32
 }
 
-const vertexSize = 40
+var sizes = []uint32{
+	4, // positions
+	4, // colors
+	2, // textures coordinates
+}
+
+const (
+	vertexSize = 40
+)
+
+// declared as variable to force the compiler to inline it
+// and declared here for mr to not forget to edit it after editing the struct
+var setAttr = func() {
+	offset := 0
+	for i, s := range sizes {
+		gl.EnableVertexAttribArray(uint32(i))
+		gl.VertexAttribPointerWithOffset(uint32(i), int32(s), gl.FLOAT, false, vertexSize, uintptr(offset)*4)
+		offset += int(s)
+	}
+}
 
 func NewObject(vertices []Vertex, indices []uint32, sh Shader, textures ...Texture) (obj *Object) {
 
@@ -51,20 +70,19 @@ func NewObject(vertices []Vertex, indices []uint32, sh Shader, textures ...Textu
 		gl.BufferData(gl.ELEMENT_ARRAY_BUFFER, 4*len(indices), gl.Ptr(indices), gl.STATIC_DRAW)
 	}
 
-	gl.EnableVertexAttribArray(0)
-	gl.VertexAttribPointerWithOffset(0, 4, gl.FLOAT, false, vertexSize, 0)
-
-	gl.EnableVertexAttribArray(1)
-	gl.VertexAttribPointerWithOffset(1, 4, gl.FLOAT, false, vertexSize, 4*4)
-
-	gl.EnableVertexAttribArray(2)
-	gl.VertexAttribPointerWithOffset(2, 4, gl.FLOAT, false, vertexSize, 8*4)
+	setAttr()
 
 	obj.handle = vao
 	obj.vertexCount = len(vertices)
 	obj.indexCount = len(indices)
 	obj.shader = sh
 	obj.textures = textures
+
+	obj.SetPosition(0, 0, 0)
+
+	obj.SetScale(1, 1, 1)
+
+	obj.SetRotation(0, 0, 0)
 
 	return
 }
