@@ -146,6 +146,7 @@ func loadShaderSourceFromFile(filePath string) (string, error) {
 
 // SetUniform1f sets a float uniform value.
 func (sh *Shader) SetUniform1f(name string, value float32) {
+	sh.Activate()
 	location := sh.getUniformLocation(name)
 	gl.Uniform1f(location, value)
 	bayaan.Trace("Set float uniform: %s = %f", name, value)
@@ -153,6 +154,7 @@ func (sh *Shader) SetUniform1f(name string, value float32) {
 
 // SetUniform1i sets an integer uniform value.
 func (sh *Shader) SetUniform1i(name string, value int32) {
+	sh.Activate()
 	location := sh.getUniformLocation(name)
 	gl.Uniform1i(location, value)
 	bayaan.Trace("Set int uniform: %s = %d", name, value)
@@ -160,6 +162,7 @@ func (sh *Shader) SetUniform1i(name string, value int32) {
 
 // SetUniform3f sets a vec3 uniform value (e.g., for color or position).
 func (sh *Shader) SetUniform3f(name string, x, y, z float32) {
+	sh.Activate()
 	location := sh.getUniformLocation(name)
 	gl.Uniform3f(location, x, y, z)
 	bayaan.Trace("Set vec3 uniform: %s = (%f, %f, %f)", name, x, y, z)
@@ -167,6 +170,7 @@ func (sh *Shader) SetUniform3f(name string, x, y, z float32) {
 
 // SetUniform4f sets a vec4 uniform value.
 func (sh *Shader) SetUniform4f(name string, x, y, z, w float32) {
+	sh.Activate()
 	location := sh.getUniformLocation(name)
 	gl.Uniform4f(location, x, y, z, w)
 	bayaan.Trace("Set vec4 uniform: %s = (%f, %f, %f, %f)", name, x, y, z, w)
@@ -174,9 +178,8 @@ func (sh *Shader) SetUniform4f(name string, x, y, z, w float32) {
 
 // SetUniformMatrix4fv sets a 4x4 matrix uniform value.
 func (sh *Shader) SetUniformMatrix4fv(name string, matrix madar.Matrix4X4) {
-
+	sh.Activate()
 	t := matrix.Transpose()
-
 	location := sh.getUniformLocation(name)
 	gl.UniformMatrix4fv(location, 1, false, &t[0])
 	bayaan.Trace("Set mat4 uniform: %s", name)
@@ -184,6 +187,7 @@ func (sh *Shader) SetUniformMatrix4fv(name string, matrix madar.Matrix4X4) {
 
 // getUniformLocation retrieves the location of a uniform variable in the shader program.
 func (sh *Shader) getUniformLocation(name string) int32 {
+	sh.Activate()
 	nameCStr := gl.Str(name + "\x00")
 	location := gl.GetUniformLocation(uint32(*sh), nameCStr)
 	if location == -1 {

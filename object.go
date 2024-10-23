@@ -7,29 +7,34 @@ import (
 )
 
 type Object struct {
-	handle      uint32
-	vertexCount int
-	indexCount  int
-	shader      Shader
-	textures    []Texture
+	Handle      uint32
+	VertexCount int
+	IndexCount  int
+	Shader      Shader
+	Textures    []Texture
 
-	position, scale, rotation [3]float32
+	Position, Scale, Rotation madar.Vector3
 }
 
-// vertices is [x, y, z, u, v]
-
 type Vertex struct {
-	X, Y, Z, W, R, G, B, A, U, V float32
+	// position
+	Vx, Vy, Vz float32
+
+	// normal
+	Nx, Ny, Nz float32
+
+	// texture coordinates
+	U, V float32
 }
 
 var sizes = []uint32{
-	4, // positions
-	4, // colors
+	3, // positions
+	3, // normals
 	2, // textures coordinates
 }
 
 const (
-	vertexSize = 40
+	vertexSize = 32
 )
 
 // declared as variable to force the compiler to inline it
@@ -52,7 +57,7 @@ func NewObject(vertices []Vertex, indices []uint32, sh Shader, textures ...Textu
 
 	obj = &Object{}
 
-	obj.indexCount = len(indices)
+	obj.IndexCount = len(indices)
 
 	var vao uint32
 	gl.GenVertexArrays(1, &vao)
@@ -63,7 +68,7 @@ func NewObject(vertices []Vertex, indices []uint32, sh Shader, textures ...Textu
 	gl.BindBuffer(gl.ARRAY_BUFFER, vbo)
 	gl.BufferData(gl.ARRAY_BUFFER, vertexSize*len(vertices), gl.Ptr(vertices), gl.STATIC_DRAW)
 
-	if obj.indexCount > 0 {
+	if obj.IndexCount > 0 {
 		var ebo uint32
 		gl.GenBuffers(1, &ebo)
 		gl.BindBuffer(gl.ELEMENT_ARRAY_BUFFER, ebo)
@@ -72,63 +77,43 @@ func NewObject(vertices []Vertex, indices []uint32, sh Shader, textures ...Textu
 
 	setAttr()
 
-	obj.handle = vao
-	obj.vertexCount = len(vertices)
-	obj.indexCount = len(indices)
-	obj.shader = sh
-	obj.textures = textures
+	obj.Handle = vao
+	obj.VertexCount = len(vertices)
+	obj.IndexCount = len(indices)
+	obj.Shader = sh
+	obj.Textures = textures
 
-	obj.SetPosition(0, 0, 0)
-
-	obj.SetScale(1, 1, 1)
-
-	obj.SetRotation(0, 0, 0)
+	obj.Scale = madar.Vector3{X: 1, Y: 1, Z: 1}
 
 	return
 }
 
 func (obj *Object) Delete() {
-	gl.DeleteVertexArrays(1, &obj.handle)
+	gl.DeleteVertexArrays(1, &obj.Handle)
 }
 
 func (obj *Object) Draw(c *Camera) {
 
-	obj.shader.Activate()
-	obj.shader.SetUniformMatrix4fv("uModel", obj.ModelMatrix())
-	obj.shader.SetUniformMatrix4fv("uView", c.ViewMatrix)
-	obj.shader.SetUniformMatrix4fv("uProjection", c.ProjectionMatrix)
+	obj.Shader.Activate()
+	obj.Shader.SetUniformMatrix4fv("uModel", obj.ModelMatrix())
+	obj.Shader.SetUniformMatrix4fv("uView", c.ViewMatrix)
+	obj.Shader.SetUniformMatrix4fv("uProjection", c.ProjectionMatrix)
 
-	for i, tex := range obj.textures {
-		tex.Activate(obj.shader, uint32(i))
+	for i, tex := range obj.Textures {
+		tex.Activate(obj.Shader, uint32(i))
 	}
 
-	gl.BindVertexArray(obj.handle)
-	if obj.indexCount > 0 {
-		gl.DrawElements(gl.TRIANGLES, int32(obj.indexCount), gl.UNSIGNED_INT, gl.Ptr(nil))
+	gl.BindVertexArray(obj.Handle)
+	if obj.IndexCount > 0 {
+		gl.DrawElements(gl.TRIANGLES, int32(obj.IndexCount), gl.UNSIGNED_INT, gl.Ptr(nil))
 	} else {
-		gl.DrawArrays(gl.TRIANGLES, 0, int32(obj.vertexCount/5))
+		gl.DrawArrays(gl.TRIANGLES, 0, int32(obj.VertexCount/5))
 	}
 }
 
 func (obj *Object) ModelMatrix() [16]float32 {
 	return madar.IdentityMatrix4X4().
-		Multiply(madar.TranslationMatrix4X4(obj.position[0], obj.position[1], obj.position[2])).
-		Multiply(madar.ScaleMatrix4X4(obj.scale[0], obj.scale[1], obj.scale[2])).
-		Multiply(madar.RotationMatrix4X4(obj.rotation[0], obj.rotation[1], obj.rotation[2]))
+		Multiply(madar.TranslationMatrix4X4(obj.Position.X, obj.Position.Y, obj.Position.Z)).
+		Multiply(madar.ScaleMatrix4X4(obj.Scale.X, obj.Scale.Y, obj.Scale.Z)).
+		Multiply(madar.RotationMatrix4X4(obj.Rotation.X, obj.Rotation.Y, obj.Rotation.Z))
 }
-
-func (obj *Object) SetPosition(x, y, z float32) {
-	obj.position = [3]float32{x, y, z}
-}
-
-func (obj *Object) SetScale(x, y, z float32) {
-	obj.scale = [3]float32{x, y, z}
-}
-
-func (obj *Object) SetRotation(x, y, z float32) {
-	obj.rotation = [3]float32{x, y, z}
-}
-
-// func (obj *Object) SetRotationEuler(x, y, z float32) {
-// 	obj.rotation = [3]float32{x, y, z}
-// }

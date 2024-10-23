@@ -11,8 +11,7 @@ import (
 
 // noor internal state
 var (
-	isInitialized = false
-	window        *glfw.Window
+	window *glfw.Window
 )
 
 // Init initializes the noor library
@@ -34,7 +33,7 @@ func Init(width, height int, title string, resizable bool) (err error) {
 
 	err = gl.Init()
 	if err != nil {
-		return errors.Join(err, errors.New("failed to init opengl"))
+		return errors.Join(err, errors.New("failed to init open-gl"))
 	}
 
 	gl.Viewport(0, 0, int32(width), int32(height))
@@ -46,8 +45,6 @@ func Init(width, height int, title string, resizable bool) (err error) {
 
 	// ! for debugging
 	// gl.PolygonMode(gl.FRONT_AND_BACK, gl.LINE)
-
-	isInitialized = true
 	return
 }
 
@@ -56,7 +53,6 @@ func Terminate() {
 	window.Destroy()
 	glfw.Terminate()
 
-	isInitialized = false
 }
 
 func boolToInt(b bool) int {
@@ -82,7 +78,8 @@ func Run(draw func(), update func(float32), updateInterval time.Duration) {
 			window.SetShouldClose(true)
 		}
 
-		gl.ClearColor(0.2, 0.3, 0.3, 1.0)
+		gl.ClearColor(13.0/255.5, 54/255.5, 66/255.5, 1.0)
+		// gl.ClearColor(0.0, 0.0, 0.0, 1.0)
 		gl.Clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT)
 
 		// Draw as fast as possible
@@ -91,12 +88,12 @@ func Run(draw func(), update func(float32), updateInterval time.Duration) {
 		window.SwapBuffers()
 		glfw.PollEvents()
 
-		// Update every X seconds
 		if now.Sub(lastUpdateTime) >= updateInterval {
 			deltaTime = float32(now.Sub(lastUpdateTime).Seconds())
 			lastUpdateTime = now
 
 			update(deltaTime)
 		}
+
 	}
 }
