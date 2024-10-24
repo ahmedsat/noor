@@ -2,57 +2,73 @@ package noor
 
 import (
 	"errors"
-	"time"
+	"image/color"
 
 	"github.com/ahmedsat/noor/input"
 	"github.com/go-gl/gl/v4.5-core/gl"
 	"github.com/go-gl/glfw/v3.3/glfw"
 )
 
-// noor internal state
 var (
-	window *glfw.Window
+	window         *glfw.Window
+	defaultExitKey = input.KeyEscape
+	backGround     color.Color
 )
 
+type InitSettings struct {
+	// window settings
+	WindowWidth, WindowHeight int
+	WindowTitle               string
+	WindowResizable           bool
+	BackGround                color.Color
+
+	// gl settings
+	GLMajorVersion, GLMinorVersion int
+	GLCoreProfile, DebugLines      bool
+}
+
 // Init initializes the noor library
-func Init(width, height int, title string, resizable bool) (err error) {
+func Init(st InitSettings) (err error) {
 
 	glfw.Init()
-	glfw.WindowHint(glfw.ContextVersionMajor, 4)
-	glfw.WindowHint(glfw.ContextVersionMinor, 5)
-	glfw.WindowHint(glfw.OpenGLProfile, glfw.OpenGLCoreProfile)
-	glfw.WindowHint(glfw.OpenGLForwardCompatible, glfw.True)
-	glfw.WindowHint(glfw.Resizable, boolToInt(resizable))
-
-	window, err = glfw.CreateWindow(width, height, title, nil, nil)
-	if err != nil {
-		return errors.Join(err, errors.New("failed to create window"))
+	glfw.WindowHint(glfw.ContextVersionMajor, st.GLMajorVersion)
+	glfw.WindowHint(glfw.ContextVersionMinor, st.GLMinorVersion)
+	if st.GLCoreProfile {
+		glfw.WindowHint(glfw.OpenGLProfile, glfw.OpenGLCoreProfile)
+	} else {
+		glfw.WindowHint(glfw.OpenGLProfile, glfw.OpenGLCompatProfile)
 	}
+	glfw.WindowHint(glfw.OpenGLForwardCompatible, glfw.True)
+	glfw.WindowHint(glfw.Resizable, boolToInt(st.WindowResizable))
+
+	window, err = glfw.CreateWindow(st.WindowWidth, st.WindowHeight, st.WindowTitle, nil, nil)
+	if err != nil {
+		err = errors.Join(err, errors.New("failed to create window"))
+		return
+	}
+
 	input.Init(window)
 	window.MakeContextCurrent()
 
 	err = gl.Init()
 	if err != nil {
-		return errors.Join(err, errors.New("failed to init open-gl"))
+		err = errors.Join(err, errors.New("failed to init open-gl"))
+		return
 	}
 
-	gl.Viewport(0, 0, int32(width), int32(height))
+	gl.Viewport(0, 0, int32(st.WindowWidth), int32(st.WindowHeight))
 	window.SetFramebufferSizeCallback(func(w *glfw.Window, width, height int) {
 		gl.Viewport(0, 0, int32(width), int32(height))
 	})
 
-	gl.Enable(gl.DEPTH_TEST)
+	// gl.Enable(gl.DEPTH_TEST)
 
-	// ! for debugging
-	// gl.PolygonMode(gl.FRONT_AND_BACK, gl.LINE)
+	if st.DebugLines {
+		gl.PolygonMode(gl.FRONT_AND_BACK, gl.LINE)
+	}
+
+	backGround = st.BackGround
 	return
-}
-
-// terminate the noor library
-func Terminate() {
-	window.Destroy()
-	glfw.Terminate()
-
 }
 
 func boolToInt(b bool) int {
@@ -62,38 +78,25 @@ func boolToInt(b bool) int {
 	return 0
 }
 
-func GetWindow() *glfw.Window {
-	return window
+func IsWindowShouldClose() bool {
+	window.SwapBuffers()
+	glfw.PollEvents()
+	if input.IsKeyPressed(defaultExitKey) {
+		window.SetShouldClose(true)
+	}
+	r, g, b, a := backGround.RGBA()
+	gl.ClearColor(float32(r)/0xffff, float32(g)/0xffff, float32(b)/0xffff, float32(a)/0xffff)
+	gl.Clear(gl.COLOR_BUFFER_BIT)
+	return window.ShouldClose()
 }
 
-func Run(draw func(), update func(float32), updateInterval time.Duration) {
+func SetDefaultExitKey(key input.Key) { defaultExitKey = key }
 
-	lastUpdateTime := time.Now()
-	var deltaTime float32
+func Terminate() {
+	window.Destroy()
+	glfw.Terminate()
+}
 
-	for !window.ShouldClose() {
-		now := time.Now()
-
-		if window.GetKey(glfw.KeyEscape) == glfw.Press {
-			window.SetShouldClose(true)
-		}
-
-		gl.ClearColor(13.0/255.5, 54/255.5, 66/255.5, 1.0)
-		// gl.ClearColor(0.0, 0.0, 0.0, 1.0)
-		gl.Clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT)
-
-		// Draw as fast as possible
-		draw()
-
-		window.SwapBuffers()
-		glfw.PollEvents()
-
-		if now.Sub(lastUpdateTime) >= updateInterval {
-			deltaTime = float32(now.Sub(lastUpdateTime).Seconds())
-			lastUpdateTime = now
-
-			update(deltaTime)
-		}
-
-	}
+func Window() *glfw.Window {
+	return window
 }
