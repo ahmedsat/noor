@@ -11,8 +11,8 @@ import (
 
 var (
 	window         *glfw.Window
-	defaultExitKey = input.KeyEscape
-	backGround     color.Color
+	defaultExitKey             = input.KeyEscape
+	backGround     color.Color = color.Transparent
 )
 
 type InitSettings struct {
@@ -31,15 +31,37 @@ type InitSettings struct {
 func Init(st InitSettings) (err error) {
 
 	glfw.Init()
-	glfw.WindowHint(glfw.ContextVersionMajor, st.GLMajorVersion)
+
+	if st.GLMajorVersion == 0 {
+		st.GLMajorVersion = 4
+		glfw.WindowHint(glfw.ContextVersionMajor, st.GLMajorVersion)
+	}
+
+	if st.GLMinorVersion == 0 {
+		st.GLMinorVersion = 5
+	}
+
 	glfw.WindowHint(glfw.ContextVersionMinor, st.GLMinorVersion)
+
 	if st.GLCoreProfile {
 		glfw.WindowHint(glfw.OpenGLProfile, glfw.OpenGLCoreProfile)
-	} else {
-		glfw.WindowHint(glfw.OpenGLProfile, glfw.OpenGLCompatProfile)
 	}
+
 	glfw.WindowHint(glfw.OpenGLForwardCompatible, glfw.True)
+
 	glfw.WindowHint(glfw.Resizable, boolToInt(st.WindowResizable))
+
+	if st.WindowWidth == 0 {
+		st.WindowWidth = 800
+	}
+
+	if st.WindowHeight == 0 {
+		st.WindowHeight = 600
+	}
+
+	if st.WindowTitle == "" {
+		st.WindowTitle = "noor window"
+	}
 
 	window, err = glfw.CreateWindow(st.WindowWidth, st.WindowHeight, st.WindowTitle, nil, nil)
 	if err != nil {
@@ -61,13 +83,16 @@ func Init(st InitSettings) (err error) {
 		gl.Viewport(0, 0, int32(width), int32(height))
 	})
 
-	// gl.Enable(gl.DEPTH_TEST)
+	gl.Enable(gl.DEPTH_TEST)
 
 	if st.DebugLines {
 		gl.PolygonMode(gl.FRONT_AND_BACK, gl.LINE)
 	}
 
-	backGround = st.BackGround
+	if st.BackGround != nil {
+		backGround = st.BackGround
+	}
+
 	return
 }
 
@@ -86,7 +111,7 @@ func IsWindowShouldClose() bool {
 	}
 	r, g, b, a := backGround.RGBA()
 	gl.ClearColor(float32(r)/0xffff, float32(g)/0xffff, float32(b)/0xffff, float32(a)/0xffff)
-	gl.Clear(gl.COLOR_BUFFER_BIT)
+	gl.Clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT)
 	return window.ShouldClose()
 }
 

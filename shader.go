@@ -21,31 +21,25 @@ func CreateShaderProgram(vertexShaderSource, fragmentShaderSource string) (sh Sh
 	sh = Shader(gl.CreateProgram())
 
 	// Compile and attach vertex shader
-	err = compileShaderAndAttach(uint32(sh), vertexShaderSource, gl.VERTEX_SHADER)
-	if err != nil {
-		err = errors.Join(err, errors.New("failed to compile vertex shader"))
-		return
+	if err = compileShaderAndAttach(uint32(sh), vertexShaderSource, gl.VERTEX_SHADER); err != nil {
+		return 0, errors.Join(err, errors.New("failed to compile vertex shader"))
 	}
 	bayaan.Trace("Vertex shader compiled and attached")
 
 	// Compile and attach fragment shader
-	err = compileShaderAndAttach(uint32(sh), fragmentShaderSource, gl.FRAGMENT_SHADER)
-	if err != nil {
-		err = errors.Join(err, errors.New("failed to compile fragment shader"))
-		return
+	if err = compileShaderAndAttach(uint32(sh), fragmentShaderSource, gl.FRAGMENT_SHADER); err != nil {
+		return 0, errors.Join(err, errors.New("failed to compile fragment shader"))
 	}
 	bayaan.Trace("Fragment shader compiled and attached")
 
 	// Link the shader program
 	gl.LinkProgram(uint32(sh))
-	err = checkProgramLinkStatus(uint32(sh))
-	if err != nil {
-		err = errors.Join(err, errors.New("failed to link shader program"))
-		return
+	if err = checkProgramLinkStatus(uint32(sh)); err != nil {
+		return 0, errors.Join(err, errors.New("failed to link shader program"))
 	}
 	bayaan.Info("Shader program linked successfully")
 
-	return
+	return sh, nil
 }
 
 // CreateShaderProgramFromFiles loads shader sources from files and creates a shader program.
@@ -53,51 +47,38 @@ func CreateShaderProgramFromFiles(vertexShaderPath, fragmentShaderPath string) (
 	// Load vertex shader source from file
 	vertexShaderSource, err := loadShaderSourceFromFile(vertexShaderPath)
 	if err != nil {
-		err = errors.Join(err, fmt.Errorf("failed to load vertex shader from file: %s", vertexShaderPath))
-		return
+		return 0, errors.Join(err, fmt.Errorf("failed to load vertex shader from file: %s", vertexShaderPath))
 	}
 	bayaan.Trace("Vertex shader source loaded from file: %s", vertexShaderPath)
 
 	// Load fragment shader source from file
 	fragmentShaderSource, err := loadShaderSourceFromFile(fragmentShaderPath)
 	if err != nil {
-		err = errors.Join(err, fmt.Errorf("failed to load fragment shader from file: %s", fragmentShaderPath))
-		return
+		return 0, errors.Join(err, fmt.Errorf("failed to load fragment shader from file: %s", fragmentShaderPath))
 	}
 	bayaan.Trace("Fragment shader source loaded from file: %s", fragmentShaderPath)
 
 	// Create shader program using loaded sources
-	sh, err = CreateShaderProgram(vertexShaderSource, fragmentShaderSource)
-	if err != nil {
-		err = errors.Join(err, fmt.Errorf("failed to create shader program from files: %s and %s", vertexShaderPath, fragmentShaderPath))
-		return
-	}
-
-	return
+	return CreateShaderProgram(vertexShaderSource, fragmentShaderSource)
 }
 
 // compileShaderAndAttach compiles a shader and attaches it to the program.
 func compileShaderAndAttach(program uint32, source string, shaderType uint32) error {
-	// Create shader object
 	shader := gl.CreateShader(shaderType)
+	defer gl.DeleteShader(shader) // Ensure shader cleanup after attachment
 
 	// Set the source code and compile the shader
 	cSources, free := gl.Strs(source + "\x00")
+	defer free() // Free the C strings after use
 	gl.ShaderSource(shader, 1, cSources, nil)
-	free()
 	gl.CompileShader(shader)
 
 	// Check for compilation errors
-	err := checkShaderCompileStatus(shader)
-	if err != nil {
+	if err := checkShaderCompileStatus(shader); err != nil {
 		return fmt.Errorf("failed to compile shader (type: %d): %w", shaderType, err)
 	}
 
-	// Attach the compiled shader to the program
 	gl.AttachShader(program, shader)
-
-	// Shader object can be deleted after being attached
-	gl.DeleteShader(shader)
 	bayaan.Trace("Shader compiled and attached to program (shader type: %d)", shaderType)
 
 	return nil
@@ -146,7 +127,6 @@ func loadShaderSourceFromFile(filePath string) (string, error) {
 
 // SetUniform1f sets a float uniform value.
 func (sh *Shader) SetUniform1f(name string, value float32) {
-	sh.Activate()
 	location := sh.getUniformLocation(name)
 	gl.Uniform1f(location, value)
 	bayaan.Trace("Set float uniform: %s = %f", name, value)
@@ -154,7 +134,6 @@ func (sh *Shader) SetUniform1f(name string, value float32) {
 
 // SetUniform1i sets an integer uniform value.
 func (sh *Shader) SetUniform1i(name string, value int32) {
-	sh.Activate()
 	location := sh.getUniformLocation(name)
 	gl.Uniform1i(location, value)
 	bayaan.Trace("Set int uniform: %s = %d", name, value)
@@ -162,7 +141,6 @@ func (sh *Shader) SetUniform1i(name string, value int32) {
 
 // SetUniform3f sets a vec3 uniform value (e.g., for color or position).
 func (sh *Shader) SetUniform3f(name string, x, y, z float32) {
-	sh.Activate()
 	location := sh.getUniformLocation(name)
 	gl.Uniform3f(location, x, y, z)
 	bayaan.Trace("Set vec3 uniform: %s = (%f, %f, %f)", name, x, y, z)
@@ -170,7 +148,6 @@ func (sh *Shader) SetUniform3f(name string, x, y, z float32) {
 
 // SetUniform4f sets a vec4 uniform value.
 func (sh *Shader) SetUniform4f(name string, x, y, z, w float32) {
-	sh.Activate()
 	location := sh.getUniformLocation(name)
 	gl.Uniform4f(location, x, y, z, w)
 	bayaan.Trace("Set vec4 uniform: %s = (%f, %f, %f, %f)", name, x, y, z, w)
@@ -178,7 +155,6 @@ func (sh *Shader) SetUniform4f(name string, x, y, z, w float32) {
 
 // SetUniformMatrix4fv sets a 4x4 matrix uniform value.
 func (sh *Shader) SetUniformMatrix4fv(name string, matrix madar.Matrix4X4) {
-	sh.Activate()
 	t := matrix.Transpose()
 	location := sh.getUniformLocation(name)
 	gl.UniformMatrix4fv(location, 1, false, &t[0])
@@ -187,19 +163,20 @@ func (sh *Shader) SetUniformMatrix4fv(name string, matrix madar.Matrix4X4) {
 
 // getUniformLocation retrieves the location of a uniform variable in the shader program.
 func (sh *Shader) getUniformLocation(name string) int32 {
-	sh.Activate()
 	nameCStr := gl.Str(name + "\x00")
 	location := gl.GetUniformLocation(uint32(*sh), nameCStr)
 	if location == -1 {
-		bayaan.Warn("Warning: Uniform %s doesn't exist in shader", name)
+		bayaan.Warn("Uniform %s does not exist in shader", name)
 	}
 	return location
 }
 
+// Activate activates the shader program for rendering.
 func (sh *Shader) Activate() {
 	gl.UseProgram(uint32(*sh))
 }
 
+// Delete deletes the shader program.
 func (sh *Shader) Delete() {
 	gl.DeleteProgram(uint32(*sh))
 }

@@ -117,10 +117,12 @@ func GetMouseDelta() madar.Vector2 {
 	return r
 }
 
-func GetMouseScroll() madar.Vector2 {
+func GetMouseScroll() (scroll madar.Vector2) {
 	mutex.RLock()
 	defer mutex.RUnlock()
-	return mouseScroll
+	scroll = mouseScroll
+	mouseScroll = madar.Vector2{}
+	return
 }
 
 func LockMouse() {
