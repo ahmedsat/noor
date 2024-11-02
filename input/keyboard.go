@@ -132,19 +132,13 @@ const (
 )
 
 func IsKeyPressed(key Key) bool {
-	mutex.RLock()
-	defer mutex.RUnlock()
-	return keyStates[glfw.Key(key)].justPressed
+	return window.GetKey(glfw.Key(key)) == glfw.Press
 }
 
 func IsKeyReleased(key Key) bool {
-	mutex.RLock()
-	defer mutex.RUnlock()
-	return keyStates[glfw.Key(key)].justReleased
+	return window.GetKey(glfw.Key(key)) == glfw.Release
 }
 
-func IsKeyHeld(key Key) bool {
-	mutex.RLock()
-	defer mutex.RUnlock()
-	return keyStates[glfw.Key(key)].pressed
+func IsKeyRepeat(key Key) bool {
+	return window.GetKey(glfw.Key(key)) == glfw.Repeat
 }
