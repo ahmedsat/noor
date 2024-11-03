@@ -8,9 +8,9 @@ var (
 	defaultPosition = madar.Vector3{}
 	defaultScale    = madar.Vector3{X: 1, Y: 1, Z: 1}
 	defaultRotation = madar.Vector3{}
-	defaultMesh     = Mesh{}    // todo: add default mesh
-	defaultShader   = Shader(0) // todo: add default shader
-	defaultTextures = []Texture{}
+	defaultMesh     = Mesh{}      // todo: add default mesh
+	defaultShader   = Shader(0)   // todo: add default shader
+	defaultTextures = []Texture{} // ? default to no textures
 )
 
 type ObjectCreateInfo struct {
@@ -33,7 +33,6 @@ type Object struct {
 	shader      Shader
 	textures    []Texture
 	modelMatrix madar.Matrix4X4
-	isDirty     bool
 }
 
 func CreateObject(info ObjectCreateInfo) *Object {
@@ -45,10 +44,8 @@ func CreateObject(info ObjectCreateInfo) *Object {
 		mesh:     info.Mesh,
 		shader:   info.Shader,
 		textures: info.Textures,
-
-		isDirty: true,
 	}
-	o.Update()
+	o.update()
 
 	return o
 }
@@ -66,20 +63,22 @@ func (o *Object) Draw(c Camera) {
 	o.mesh.Draw()
 }
 
-func (o *Object) Update() {
-	if o.isDirty {
-		modelMatrix := madar.IdentityMatrix4X4()
-		scaleMatrix := madar.ScaleMatrix4X4(o.scale)
-		rotationMatrix := madar.RotationMatrix4X4(o.rotation)
-		positionMatrix := madar.TranslationMatrix4X4(o.position)
-		modelMatrix = modelMatrix.Multiply(scaleMatrix)
-		modelMatrix = modelMatrix.Multiply(rotationMatrix)
-		modelMatrix = modelMatrix.Multiply(positionMatrix)
+func (o *Object) update() {
+	modelMatrix := madar.IdentityMatrix4X4()
+	scaleMatrix := madar.ScaleMatrix4X4(o.scale)
+	rotationMatrix := madar.RotationMatrix4X4(o.rotation)
+	positionMatrix := madar.TranslationMatrix4X4(o.position)
+	modelMatrix = modelMatrix.Multiply(scaleMatrix)
+	modelMatrix = modelMatrix.Multiply(rotationMatrix)
+	modelMatrix = modelMatrix.Multiply(positionMatrix)
 
-		o.modelMatrix = modelMatrix
+	o.modelMatrix = modelMatrix
 
-		o.isDirty = false
-	}
+}
+
+func (o *Object) Rotate(rotation madar.Vector3) {
+	o.rotation = o.rotation.Add(rotation)
+	o.update()
 }
 
 func If[T any](condition bool, True, False T) T {
