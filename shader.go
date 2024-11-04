@@ -161,6 +161,14 @@ func (sh *Shader) SetUniformMatrix4fv(name string, matrix madar.Matrix4X4) {
 	bayaan.Trace("Set mat4 uniform: %s", name)
 }
 
+// SetUniformMatrix3fv sets a 3x3 matrix uniform value.
+func (sh *Shader) SetUniformMatrix3fv(name string, matrix madar.Matrix3X3) {
+	t := matrix.Transpose()
+	location := sh.getUniformLocation(name)
+	gl.UniformMatrix3fv(location, 1, false, &t[0])
+	bayaan.Trace("Set mat3 uniform: %s", name)
+}
+
 // getUniformLocation retrieves the location of a uniform variable in the shader program.
 func (sh *Shader) getUniformLocation(name string) int32 {
 	nameCStr := gl.Str(name + "\x00")

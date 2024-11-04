@@ -26,13 +26,14 @@ type ObjectCreateInfo struct {
 }
 
 type Object struct {
-	position    madar.Vector3
-	scale       madar.Vector3
-	rotation    madar.Vector3
-	mesh        Mesh
-	shader      Shader
-	textures    []Texture
-	modelMatrix madar.Matrix4X4
+	position     madar.Vector3
+	scale        madar.Vector3
+	rotation     madar.Vector3
+	mesh         Mesh
+	shader       Shader
+	textures     []Texture
+	modelMatrix  madar.Matrix4X4
+	normalMatrix madar.Matrix3X3
 }
 
 func CreateObject(info ObjectCreateInfo) *Object {
@@ -57,6 +58,7 @@ func (o *Object) Draw(c Camera) {
 	}
 
 	o.shader.SetUniformMatrix4fv("uModel", o.modelMatrix)
+	o.shader.SetUniformMatrix3fv("uNormalMatrix", o.normalMatrix)
 	o.shader.SetUniformMatrix4fv("uView", c.GetViewMatrix())
 	o.shader.SetUniformMatrix4fv("uProjection", c.GetProjectionMatrix())
 
@@ -73,6 +75,7 @@ func (o *Object) update() {
 	modelMatrix = modelMatrix.Multiply(positionMatrix)
 
 	o.modelMatrix = modelMatrix
+	o.normalMatrix = modelMatrix.NormalMatrix()
 
 }
 
