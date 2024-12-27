@@ -15,7 +15,10 @@ type Shader uint32
 
 // CreateShaderProgram creates a shader program from vertex and fragment shader sources.
 func CreateShaderProgram(vertexShaderSource, fragmentShaderSource string) (sh Shader, err error) {
-	bayaan.Info("Creating shader program")
+	bayaan.Info("Creating shader program", bayaan.Fields{
+		"vertexShaderSource":   vertexShaderSource,
+		"fragmentShaderSource": fragmentShaderSource,
+	})
 
 	// Create the shader program
 	sh = Shader(gl.CreateProgram())
@@ -24,20 +27,27 @@ func CreateShaderProgram(vertexShaderSource, fragmentShaderSource string) (sh Sh
 	if err = compileShaderAndAttach(uint32(sh), vertexShaderSource, gl.VERTEX_SHADER); err != nil {
 		return 0, errors.Join(err, errors.New("failed to compile vertex shader"))
 	}
-	bayaan.Trace("Vertex shader compiled and attached")
+	bayaan.Trace("Vertex shader compiled and attached", bayaan.Fields{
+		"vertexShaderSource": vertexShaderSource,
+	})
 
 	// Compile and attach fragment shader
 	if err = compileShaderAndAttach(uint32(sh), fragmentShaderSource, gl.FRAGMENT_SHADER); err != nil {
 		return 0, errors.Join(err, errors.New("failed to compile fragment shader"))
 	}
-	bayaan.Trace("Fragment shader compiled and attached")
+	bayaan.Trace("Fragment shader compiled and attached", bayaan.Fields{
+		"fragmentShaderSource": fragmentShaderSource,
+	})
 
 	// Link the shader program
 	gl.LinkProgram(uint32(sh))
 	if err = checkProgramLinkStatus(uint32(sh)); err != nil {
 		return 0, errors.Join(err, errors.New("failed to link shader program"))
 	}
-	bayaan.Info("Shader program linked successfully")
+	bayaan.Info("Shader program linked successfully", bayaan.Fields{
+		"vertexShaderSource":   vertexShaderSource,
+		"fragmentShaderSource": fragmentShaderSource,
+	})
 
 	return sh, nil
 }
@@ -49,14 +59,18 @@ func CreateShaderProgramFromFiles(vertexShaderPath, fragmentShaderPath string) (
 	if err != nil {
 		return 0, errors.Join(err, fmt.Errorf("failed to load vertex shader from file: %s", vertexShaderPath))
 	}
-	bayaan.Trace("Vertex shader source loaded from file: %s", vertexShaderPath)
+	bayaan.Trace("Vertex shader source loaded from file", bayaan.Fields{
+		"vertexShaderPath": vertexShaderPath,
+	})
 
 	// Load fragment shader source from file
 	fragmentShaderSource, err := loadShaderSourceFromFile(fragmentShaderPath)
 	if err != nil {
 		return 0, errors.Join(err, fmt.Errorf("failed to load fragment shader from file: %s", fragmentShaderPath))
 	}
-	bayaan.Trace("Fragment shader source loaded from file: %s", fragmentShaderPath)
+	bayaan.Trace("Fragment shader source loaded from file", bayaan.Fields{
+		"fragmentShaderPath": fragmentShaderPath,
+	})
 
 	// Create shader program using loaded sources
 	return CreateShaderProgram(vertexShaderSource, fragmentShaderSource)
@@ -79,7 +93,9 @@ func compileShaderAndAttach(program uint32, source string, shaderType uint32) er
 	}
 
 	gl.AttachShader(program, shader)
-	bayaan.Trace("Shader compiled and attached to program (shader type: %d)", shaderType)
+	bayaan.Trace("Shader compiled and attached to program successfully", bayaan.Fields{
+		"shaderType": shaderType,
+	})
 
 	return nil
 }
@@ -129,28 +145,49 @@ func loadShaderSourceFromFile(filePath string) (string, error) {
 func (sh *Shader) SetUniform1f(name string, value float32) {
 	location := sh.getUniformLocation(name)
 	gl.Uniform1f(location, value)
-	bayaan.Trace("Set float uniform: %s = %f", name, value)
+	bayaan.Trace("Set float uniform", bayaan.Fields{
+		"name":  name,
+		"value": value,
+	})
+}
+
+func (sh *Shader) SetUniform1b(name string, value bool) {
+	location := sh.getUniformLocation(name)
+	gl.Uniform1i(location, int32(boolToInt(value)))
+	bayaan.Trace("Set bool uniform", bayaan.Fields{
+		"name":  name,
+		"value": value,
+	})
 }
 
 // SetUniform1i sets an integer uniform value.
 func (sh *Shader) SetUniform1i(name string, value int32) {
 	location := sh.getUniformLocation(name)
 	gl.Uniform1i(location, value)
-	bayaan.Trace("Set int uniform: %s = %d", name, value)
+	bayaan.Trace("Set int uniform", bayaan.Fields{
+		"name":  name,
+		"value": value,
+	})
 }
 
 // SetUniform3f sets a vec3 uniform value (e.g., for color or position).
-func (sh *Shader) SetUniform3f(name string, x, y, z float32) {
+func (sh *Shader) SetUniform3f(name string, v madar.Vector3) {
 	location := sh.getUniformLocation(name)
-	gl.Uniform3f(location, x, y, z)
-	bayaan.Trace("Set vec3 uniform: %s = (%f, %f, %f)", name, x, y, z)
+	gl.Uniform3f(location, v.X, v.Y, v.Z)
+	bayaan.Trace("Set vec3 uniform", bayaan.Fields{
+		"name":  name,
+		"value": v,
+	})
 }
 
 // SetUniform4f sets a vec4 uniform value.
-func (sh *Shader) SetUniform4f(name string, x, y, z, w float32) {
+func (sh *Shader) SetUniform4f(name string, v madar.Vector4) {
 	location := sh.getUniformLocation(name)
-	gl.Uniform4f(location, x, y, z, w)
-	bayaan.Trace("Set vec4 uniform: %s = (%f, %f, %f, %f)", name, x, y, z, w)
+	gl.Uniform4f(location, v.X, v.Y, v.Z, v.W)
+	bayaan.Trace("Set vec4 uniform", bayaan.Fields{
+		"name":  name,
+		"value": v,
+	})
 }
 
 // SetUniformMatrix4fv sets a 4x4 matrix uniform value.
@@ -158,7 +195,10 @@ func (sh *Shader) SetUniformMatrix4fv(name string, matrix madar.Matrix4X4) {
 	t := matrix.Transpose()
 	location := sh.getUniformLocation(name)
 	gl.UniformMatrix4fv(location, 1, false, &t[0])
-	bayaan.Trace("Set mat4 uniform: %s", name)
+	bayaan.Trace("Set mat4 uniform", bayaan.Fields{
+		"name":  name,
+		"value": matrix,
+	})
 }
 
 // SetUniformMatrix3fv sets a 3x3 matrix uniform value.
@@ -166,7 +206,10 @@ func (sh *Shader) SetUniformMatrix3fv(name string, matrix madar.Matrix3X3) {
 	t := matrix.Transpose()
 	location := sh.getUniformLocation(name)
 	gl.UniformMatrix3fv(location, 1, false, &t[0])
-	bayaan.Trace("Set mat3 uniform: %s", name)
+	bayaan.Trace("Set mat3 uniform", bayaan.Fields{
+		"name":  name,
+		"value": matrix,
+	})
 }
 
 // getUniformLocation retrieves the location of a uniform variable in the shader program.
@@ -174,7 +217,9 @@ func (sh *Shader) getUniformLocation(name string) int32 {
 	nameCStr := gl.Str(name + "\x00")
 	location := gl.GetUniformLocation(uint32(*sh), nameCStr)
 	if location == -1 {
-		bayaan.Warn("Uniform %s does not exist in shader", name)
+		bayaan.Warn("Uniform location not found", bayaan.Fields{
+			"name": name,
+		})
 	}
 	return location
 }

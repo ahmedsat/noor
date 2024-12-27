@@ -1,9 +1,11 @@
 package noor
 
 import (
-	"errors"
+	"fmt"
 	"image/color"
+	"runtime"
 
+	"github.com/ahmedsat/bayaan"
 	"github.com/ahmedsat/noor/input"
 	"github.com/go-gl/gl/v4.5-core/gl"
 	"github.com/go-gl/glfw/v3.3/glfw"
@@ -15,85 +17,143 @@ var (
 	backGround     color.Color = color.Transparent
 )
 
+type LogLevel int
+
+const (
+	LogDebug LogLevel = iota
+	LogInfo
+	LogWarning
+	LogError
+	LogFatal
+)
+
 type InitSettings struct {
-	// window settings
 	WindowWidth, WindowHeight int
 	WindowTitle               string
 	WindowResizable           bool
 	BackGround                color.Color
 
-	// gl settings
 	GLMajorVersion, GLMinorVersion int
 	GLCoreProfile, DebugLines      bool
+
+	EnableMultiSampling bool
+	VSyncEnabled        bool
+	CursorDisabled      bool
 }
 
-// Init initializes the noor library
 func Init(st InitSettings) (err error) {
-
-	glfw.Init()
-
-	if st.GLMajorVersion == 0 {
-		st.GLMajorVersion = 4
-		glfw.WindowHint(glfw.ContextVersionMajor, st.GLMajorVersion)
+	runtime.LockOSThread()
+	if err := glfw.Init(); err != nil {
+		return fmt.Errorf("failed to initialize GLFW: %w", err)
 	}
 
-	if st.GLMinorVersion == 0 {
-		st.GLMinorVersion = 5
-	}
-
-	glfw.WindowHint(glfw.ContextVersionMinor, st.GLMinorVersion)
+	glfw.WindowHint(glfw.ContextVersionMajor, defaultInt(st.GLMajorVersion, 4))
+	glfw.WindowHint(glfw.ContextVersionMinor, defaultInt(st.GLMinorVersion, 5))
 
 	if st.GLCoreProfile {
 		glfw.WindowHint(glfw.OpenGLProfile, glfw.OpenGLCoreProfile)
 	}
-
 	glfw.WindowHint(glfw.OpenGLForwardCompatible, glfw.True)
 
 	glfw.WindowHint(glfw.Resizable, boolToInt(st.WindowResizable))
 
-	if st.WindowWidth == 0 {
-		st.WindowWidth = 800
+	if st.EnableMultiSampling {
+		glfw.WindowHint(glfw.Samples, 4)
 	}
 
-	if st.WindowHeight == 0 {
-		st.WindowHeight = 600
-	}
+	width := defaultInt(st.WindowWidth, 800)
+	height := defaultInt(st.WindowHeight, 600)
+	title := defaultString(st.WindowTitle, "noor window")
 
-	if st.WindowTitle == "" {
-		st.WindowTitle = "noor window"
-	}
-
-	window, err = glfw.CreateWindow(st.WindowWidth, st.WindowHeight, st.WindowTitle, nil, nil)
+	window, err = glfw.CreateWindow(width, height, title, nil, nil)
 	if err != nil {
-		err = errors.Join(err, errors.New("failed to create window"))
-		return
+		return fmt.Errorf("failed to create window: %w", err)
+	}
+
+	window.MakeContextCurrent()
+
+	if st.VSyncEnabled {
+		bayaan.Debug("Enabling VSync", bayaan.Fields{
+			"swapInterval": 1,
+		})
+		glfw.SwapInterval(1)
 	}
 
 	input.Init(window)
-	window.MakeContextCurrent()
 
-	err = gl.Init()
-	if err != nil {
-		err = errors.Join(err, errors.New("failed to init open-gl"))
-		return
+	if st.CursorDisabled {
+		window.SetInputMode(glfw.CursorMode, glfw.CursorDisabled)
 	}
 
-	gl.Viewport(0, 0, int32(st.WindowWidth), int32(st.WindowHeight))
+	if err := gl.Init(); err != nil {
+		return fmt.Errorf("failed to initialize OpenGL: %w", err)
+	}
+
+	gl.Viewport(0, 0, int32(width), int32(height))
 	window.SetFramebufferSizeCallback(func(w *glfw.Window, width, height int) {
 		gl.Viewport(0, 0, int32(width), int32(height))
+		bayaan.Trace("Window resized", bayaan.Fields{
+			"width":  width,
+			"height": height,
+		})
+
 	})
 
 	gl.Enable(gl.DEPTH_TEST)
 
+	if st.EnableMultiSampling {
+		gl.Enable(gl.MULTISAMPLE)
+	}
+
 	if st.DebugLines {
 		gl.PolygonMode(gl.FRONT_AND_BACK, gl.LINE)
+		bayaan.Trace("Polygon mode set to lines", bayaan.Fields{
+			"mode": gl.LINE,
+		})
 	}
 
 	if st.BackGround != nil {
 		backGround = st.BackGround
+		bayaan.Trace("Background color set", bayaan.Fields{
+			"color": backGround,
+		})
+
+	}
+	return nil
+}
+
+func IsWindowShouldClose() bool {
+	window.SwapBuffers()
+	glfw.PollEvents()
+
+	if input.IsKeyPressed(defaultExitKey) {
+		window.SetShouldClose(true)
 	}
 
-	return
+	r, g, b, a := backGround.RGBA()
+	gl.ClearColor(
+		float32(r)/0xffff,
+		float32(g)/0xffff,
+		float32(b)/0xffff,
+		float32(a)/0xffff,
+	)
+	gl.Clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT)
+
+	return window.ShouldClose()
+}
+
+func defaultInt(value, defaultVal int) int {
+	if value == 0 {
+		return defaultVal
+	}
+	return value
+}
+
+func defaultString(value, defaultVal string) string {
+	if value == "" {
+		return defaultVal
+	}
+	return value
 }
 
 func boolToInt(b bool) int {
@@ -103,21 +163,15 @@ func boolToInt(b bool) int {
 	return 0
 }
 
-func IsWindowShouldClose() bool {
-	window.SwapBuffers()
-	glfw.PollEvents()
-	if input.IsKeyPressed(defaultExitKey) {
-		window.SetShouldClose(true)
-	}
-	r, g, b, a := backGround.RGBA()
-	gl.ClearColor(float32(r)/0xffff, float32(g)/0xffff, float32(b)/0xffff, float32(a)/0xffff)
-	gl.Clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT)
-	return window.ShouldClose()
+func SetDefaultExitKey(key input.Key) {
+	defaultExitKey = key
+	bayaan.Info("Default exit key changed", bayaan.Fields{
+		"key": key,
+	})
 }
 
-func SetDefaultExitKey(key input.Key) { defaultExitKey = key }
-
 func Terminate() {
+	bayaan.Info("Terminating Noor package", bayaan.Fields{})
 	window.Destroy()
 	glfw.Terminate()
 }

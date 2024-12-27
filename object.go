@@ -54,13 +54,15 @@ func CreateObject(info ObjectCreateInfo) *Object {
 func (o *Object) Draw(c Camera) {
 	o.shader.Activate()
 	for i, t := range o.textures {
-		t.Activate(o.shader, uint32(i))
+		t.Activate(o.shader, uint32(i), t.Name)
 	}
 
 	o.shader.SetUniformMatrix4fv("uModel", o.modelMatrix)
 	o.shader.SetUniformMatrix3fv("uNormalMatrix", o.normalMatrix)
 	o.shader.SetUniformMatrix4fv("uView", c.GetViewMatrix())
 	o.shader.SetUniformMatrix4fv("uProjection", c.GetProjectionMatrix())
+
+	o.shader.SetUniform3f("uCameraPosition", c.Position)
 
 	o.mesh.Draw()
 }
@@ -81,6 +83,11 @@ func (o *Object) update() {
 
 func (o *Object) Rotate(rotation madar.Vector3) {
 	o.rotation = o.rotation.Add(rotation)
+	o.update()
+}
+
+func (o *Object) Scale(scale madar.Vector3) {
+	o.scale = o.scale.Multiply(scale)
 	o.update()
 }
 
