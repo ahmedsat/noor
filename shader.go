@@ -160,6 +160,13 @@ func (sh *Shader) SetUniform1b(name string, value bool) {
 	})
 }
 
+func boolToInt(value bool) int {
+	if value {
+		return 1
+	}
+	return 0
+}
+
 // SetUniform1i sets an integer uniform value.
 func (sh *Shader) SetUniform1i(name string, value int32) {
 	location := sh.getUniformLocation(name)
