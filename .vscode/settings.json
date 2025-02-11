@@ -1,8 +1,11 @@
 {
   "cSpell.words": [
-    "bayaan",
-    "glfw",
-    "gltype",
-    "noor"
+    "Cubemap",
+    "Parameterf",
+    "Parameterfv",
+    "Parameteri",
+    "SRGB",
+    "SRGBA",
+    "webp"
   ]
 }

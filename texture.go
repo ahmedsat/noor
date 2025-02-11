@@ -8,8 +8,9 @@ import (
 	_ "image/png"  // Register PNG format
 	"os"
 
-	"github.com/ahmedsat/bayaan"
-	"github.com/go-gl/gl/v4.5-core/gl"
+	_ "github.com/chai2010/webp" // Register WEBP format
+
+	"github.com/go-gl/gl/v4.6-core/gl"
 )
 
 type TextureWrapping int32
@@ -76,9 +77,6 @@ type Texture struct {
 
 // NewTextureFromFile creates a new texture from a file path
 func NewTextureFromFile(filepath string, parameters TextureParameters) (*Texture, error) {
-	bayaan.Debug("Loading texture from file", bayaan.Fields{
-		"path": filepath,
-	})
 
 	file, err := os.Open(filepath)
 	if err != nil {
@@ -91,12 +89,6 @@ func NewTextureFromFile(filepath string, parameters TextureParameters) (*Texture
 		return nil, fmt.Errorf("failed to decode texture image %s (format: %s): %w", filepath, format, err)
 	}
 
-	bayaan.Debug("Successfully decoded image", bayaan.Fields{
-		"path":   filepath,
-		"format": format,
-		"bounds": img.Bounds(),
-	})
-
 	tex, err := NewTexture(img, filepath, parameters)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create texture from image %s: %w", filepath, err)
@@ -107,11 +99,6 @@ func NewTextureFromFile(filepath string, parameters TextureParameters) (*Texture
 
 // NewTexture creates a new OpenGL texture from an image and uploads it to the GPU.
 func NewTexture(img image.Image, name string, parameters TextureParameters) (tex Texture, err error) {
-	bayaan.Debug("Creating texture", bayaan.Fields{
-		"name":   name,
-		"type":   parameters.Type,
-		"format": parameters.Format,
-	})
 
 	// Initialize parameters with defaults if any are unset
 	initializeTextureParameters(&parameters)
@@ -126,21 +113,9 @@ func NewTexture(img image.Image, name string, parameters TextureParameters) (tex
 		Parameters: parameters,
 	}
 
-	bayaan.Debug("Converted image to RGBA", bayaan.Fields{
-		"name":   name,
-		"width":  tex.Width,
-		"height": tex.Height,
-	})
-
 	if err := tex.createAndSetup(rgba); err != nil {
 		return tex, fmt.Errorf("failed to create texture: %w", err)
 	}
-
-	bayaan.Info("Successfully created texture", bayaan.Fields{
-		"name":   name,
-		"width":  tex.Width,
-		"height": tex.Height,
-	})
 
 	return tex, nil
 }
@@ -258,6 +233,7 @@ func (tex *Texture) Delete() {
 
 // Activate binds the texture to a specific texture unit and sets it in the shader.
 func (tex *Texture) Activate(sh Shader, unit uint32, uniformName string) error {
+	sh.Activate()
 	gl.ActiveTexture(gl.TEXTURE0 + unit)
 	gl.BindTexture(uint32(tex.Type), tex.Handle)
 	sh.SetUniform1i(uniformName, int32(unit))
@@ -301,10 +277,6 @@ func imageToRGBA(img image.Image, flipImage bool) *image.RGBA {
 	bounds := img.Bounds()
 	rgba := image.NewRGBA(bounds)
 
-	bayaan.Trace("Converting image to RGBA format", bayaan.Fields{
-		"width":  bounds.Dx(),
-		"height": bounds.Dy(),
-	})
 	for y := 0; y < bounds.Dy(); y++ {
 		for x := 0; x < bounds.Dx(); x++ {
 			if flipImage {
@@ -322,10 +294,7 @@ func imageToRGBA(img image.Image, flipImage bool) *image.RGBA {
 // checkGLError checks for any OpenGL errors and logs them if found.
 func checkGLError(msg string) error {
 	if errCode := gl.GetError(); errCode != gl.NO_ERROR {
-		errMsg := fmt.Sprintf("%s: OpenGL error: 0x%x", msg, errCode)
-		return bayaan.Error(errMsg, bayaan.Fields{
-			"error": errCode,
-		})
+		return fmt.Errorf("%s: OpenGL error: 0x%x", msg, errCode)
 	}
 	return nil
 }
