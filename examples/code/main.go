@@ -4,7 +4,6 @@ import (
 	"image/color"
 	"runtime"
 
-	"github.com/ahmedsat/madar"
 	"github.com/ahmedsat/noor"
 )
 
@@ -18,29 +17,29 @@ func main() {
 	defer n.Close()
 	n.SetBackground(color.RGBA{R: 0x20, G: 0x30, B: 0x30, A: 0xff})
 
-	// ? notice that if loading our shader fails `noor` will us its default shaders
-	shader := noor.CreateShaderProgramFromFiles(
-		"examples/assets/shaders/example.vert",
-		"examples/assets/shaders/example.frag",
-	).UnwrapOrPanic()
-	defer shader.Delete()
-	n.SetShader(shader)
+	// // ? notice that if loading our shader fails `noor` will us its default shaders
+	// shader := noor.CreateShaderProgramFromFiles(
+	// 	"examples/assets/shaders/example.vert",
+	// 	"examples/assets/shaders/example.frag",
+	// ).UnwrapOrPanic()
+	// defer shader.Delete()
+
+	tex, err := noor.NewTextureFromFile("examples/assets/textures/wall.jpg", noor.DefaultTextureParameters())
+	if err != nil {
+		panic(err)
+	}
 
 	mesh := noor.NewMesh(vertices, indices, noor.DrawTriangles)
 
-	r := float32(0)
-	var mat madar.Matrix
+	obj := noor.NewObject("obj", mesh)
+	obj.AddTexture(tex)
 
-	for !n.ShouldClose() {
+	n.AddObject(obj)
 
-		r += 1
-		if r > 360 {
-			r = 0
-		}
+	n.Loop(func(deltaTime float32) {
+		obj.Rotation.X += deltaTime * 100
+		obj.Rotation.Y += deltaTime * 100
+		obj.Rotation.Z += deltaTime * 100
+	})
 
-		mat = madar.RotationMatrix(r, r, r)
-		n.Shader.SetUniformMatrixFloat32("uMat", mat.GL())
-
-		mesh.Draw()
-	}
 }

@@ -6,6 +6,7 @@ import (
 	"image/color"
 	"runtime"
 	"strings"
+	"time"
 
 	"github.com/go-gl/gl/v4.6-core/gl"
 	"github.com/go-gl/glfw/v3.3/glfw"
@@ -20,8 +21,8 @@ var DefaultVertexShader string
 var DefaultFragmentShader string
 
 type Noor struct {
-	Window *glfw.Window
-	Shader Shader
+	*glfw.Window
+	*Scene
 }
 
 func New(width, height int, title string, bg color.Color) Result[Noor] {
@@ -33,6 +34,8 @@ func New(width, height int, title string, bg color.Color) Result[Noor] {
 	}
 
 	noor := Noor{}
+
+	noor.Scene = NewScene()
 
 	var err error
 
@@ -57,11 +60,6 @@ func New(width, height int, title string, bg color.Color) Result[Noor] {
 
 	gl.Enable(gl.DEPTH_TEST)
 
-	noor.Shader, err = CreateShaderProgram(DefaultVertexShader, DefaultFragmentShader).Unwrap()
-	if err != nil {
-		return Err[Noor](err)
-	}
-
 	r, g, b, a := bg.RGBA()
 	gl.ClearColor(float32(r)/float32(0xffff), float32(g)/float32(0xffff), float32(b)/float32(0xffff), float32(a)/float32(0xffff))
 
@@ -76,18 +74,29 @@ func setWindowHints() {
 	glfw.WindowHint(glfw.OpenGLForwardCompatible, glfw.True)
 }
 
-func (n *Noor) ShouldClose() bool {
+func (n *Noor) Loop(update func(float32)) {
 
-	glfw.PollEvents()
-	n.Window.SwapBuffers()
+	lastFrameTime := time.Now()
 
-	if n.Window.GetKey(glfw.KeyEscape) == glfw.Press {
-		n.Window.SetShouldClose(true)
+	for !n.Window.ShouldClose() {
+		currentFrameTime := time.Now()
+		deltaTime := currentFrameTime.Sub(lastFrameTime).Seconds()
+		lastFrameTime = currentFrameTime
+
+		if n.Window.GetKey(glfw.KeyEscape) == glfw.Press {
+			n.Window.SetShouldClose(true)
+		}
+
+		update(float32(deltaTime))
+
+		gl.Clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT)
+		n.Render()
+
+		glfw.PollEvents()
+		n.Window.SwapBuffers()
+
 	}
-	gl.Clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT)
 
-	n.Shader.Activate()
-	return n.Window.ShouldClose()
 }
 
 func (n *Noor) SetBackground(bg color.Color) {
@@ -95,13 +104,7 @@ func (n *Noor) SetBackground(bg color.Color) {
 	gl.ClearColor(float32(r)/float32(0xffff), float32(g)/float32(0xffff), float32(b)/float32(0xffff), float32(a)/float32(0xffff))
 }
 
-func (n *Noor) SetShader(shader Shader) {
-	n.Shader.Delete()
-	n.Shader = shader
-}
-
 func (n *Noor) Close() {
-	n.Shader.Delete()
 
 	n.Window.SetShouldClose(true)
 
