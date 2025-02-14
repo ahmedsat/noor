@@ -55,6 +55,8 @@ func New(width, height int, title string, bg color.Color) Result[Noor] {
 		return Err[Noor](err)
 	}
 
+	gl.Enable(gl.DEPTH_TEST)
+
 	noor.Shader, err = CreateShaderProgram(DefaultVertexShader, DefaultFragmentShader).Unwrap()
 	if err != nil {
 		return Err[Noor](err)

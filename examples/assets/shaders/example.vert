@@ -9,8 +9,11 @@ out vec3 vColor;
 out vec2 vUv;
 out vec3 vNormal;
 
+uniform mat4 uMat;
+
+
 void main() {
-  gl_Position = vec4(aPosition, 1.0);
+  gl_Position = uMat * vec4(aPosition, 1.0);
   vColor = aColor;
   vUv = aUv;
   vNormal = aNormal;

@@ -72,11 +72,12 @@ func NewMesh(vertices []Vertex, indices []uint32, drawMode DrawMode) *Mesh {
 	gl.BindVertexArray(0)
 
 	return &Mesh{
-		VAO:      vao,
-		VBO:      vbo,
-		EBO:      ebo,
-		DrawMode: drawMode,
-		Count:    count,
+		VAO:          vao,
+		VBO:          vbo,
+		EBO:          ebo,
+		DrawMode:     drawMode,
+		Count:        count,
+		DrawElements: len(indices) > 0,
 	}
 }
 

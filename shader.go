@@ -113,16 +113,15 @@ func loadShaderSourceFromFile(filePath string) Result[string] {
 	return Ok(string(source))
 }
 
-func (sh *Shader) SetUniform1f(name string, value float32) {
-	location := sh.getUniformLocation(name)
+func (sh *Shader) SetUniformFloat32(name string, value float32) {
+	location := sh.GetUniformLocation(name)
 	gl.Uniform1f(location, value)
 
 }
 
-func (sh *Shader) SetUniform1b(name string, value bool) {
-	location := sh.getUniformLocation(name)
+func (sh *Shader) SetUniformBool(name string, value bool) {
+	location := sh.GetUniformLocation(name)
 	gl.Uniform1i(location, int32(boolToInt(value)))
-
 }
 
 func boolToInt(value bool) int {
@@ -132,13 +131,18 @@ func boolToInt(value bool) int {
 	return 0
 }
 
-func (sh *Shader) SetUniform1i(name string, value int32) {
-	location := sh.getUniformLocation(name)
+func (sh *Shader) SetUniformInt32(name string, value int32) {
+	location := sh.GetUniformLocation(name)
 	gl.Uniform1i(location, value)
-
 }
 
-func (sh *Shader) getUniformLocation(name string) int32 {
+func (sh *Shader) SetUniformMatrixFloat32(name string, value *float32) {
+	location := sh.GetUniformLocation(name)
+	gl.UniformMatrix4fv(location, 1, false, value)
+}
+
+func (sh *Shader) GetUniformLocation(name string) int32 {
+	sh.Activate()
 	nameCStr := gl.Str(name + "\x00")
 	location := gl.GetUniformLocation(uint32(*sh), nameCStr)
 	if location == -1 {

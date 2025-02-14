@@ -236,7 +236,7 @@ func (tex *Texture) Activate(sh Shader, unit uint32, uniformName string) error {
 	sh.Activate()
 	gl.ActiveTexture(gl.TEXTURE0 + unit)
 	gl.BindTexture(uint32(tex.Type), tex.Handle)
-	sh.SetUniform1i(uniformName, int32(unit))
+	sh.SetUniformInt32(uniformName, int32(unit))
 	return checkGLError("activating texture")
 }
 
